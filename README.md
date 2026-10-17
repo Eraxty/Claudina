@@ -18,6 +18,11 @@ In today's world of loneliness,all a man wants is a companion who is a star in h
 - Replies come through a model running through Ollama,` no cloud is involved
 - The conversations will be saved in your browser,you close the tab and it will still be there when you come back
 
+## use it here
+https://eraxty.github.io/Claudina/
+
+
+
 ## Installation
 
 - Python 3.10+
