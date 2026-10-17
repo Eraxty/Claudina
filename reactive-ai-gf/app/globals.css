@@ -21,7 +21,7 @@ main {
 header { display: flex; gap: 10px; align-items: center; padding: 14px 18px; border-bottom: 1px solid #ddd; }
 h1 { margin: 0; font-size: 16px; }
 small { color: #777; }
-.avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: #e76f51; color: white; }
+.avatar { display: block; width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
 
 .chat { flex: 1; padding: 20px; }
 .chat p {
@@ -38,6 +38,28 @@ small { color: #777; }
   background: #3797f0;
   color: white;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.chat .typing {
+  display: flex;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.chat .typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9aa0a6;
+  animation: blink 1.2s infinite;
+}
+
+.chat .typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
 }
 
 form { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid #ddd; }

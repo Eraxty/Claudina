@@ -23,37 +23,25 @@ def ask_model(system_prompt, messages):
 
     try:
         return json.loads(response.message.content)
-    
     except json.JSONDecodeError:
         return {"message": "wait my brain glitched"}
 
 
-messages = []
-while True:
-    
-    try:
-        text = input("you: ")
-    except (EOFError, KeyboardInterrupt):
-        break
-
+def respond(text):
     messages.append({"role": "user", "content": text})
-    
     conn.execute(
         "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
         ("user", text),
     )
-    
     conn.commit()
 
     state = get_state()
     status = get_status()
-
     known = top_memories()
+
     memory_line = (
         "Things you remember about him: " + "; ".join(known) + ". " if known else ""
     )
-    
-    
     availability = (
         f"Right now you are {status['doing']}. "
         + (
@@ -62,8 +50,6 @@ while True:
             else "You are busy, so keep it VERY short or say brb and what you are busy with. "
         )
     )
-    
-    
     system_prompt = (
         f"You are Claudina, texting your boyfriend. "
         f"Current trust: {state['trust']}, affection: {state['affection']}, annoyance: {state['annoyance']}. "
@@ -84,25 +70,38 @@ while True:
         save_memory(fact)
 
     memo = None
-    if state["affection"] >= 0.3 and status["available"] and random.random() < 0.4:
+    wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
+    if wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
-        elif state["affection"] >= 0.7:
+        elif state["affection"] >= 0.7 or wants_voice:
             mood = "sweet"
         else:
             mood = "playful"
         memo = make_voice_memo(reply, mood)
 
-    if memo:
-        print("claudina: [voice memo]")
-        os.system(f"mpv --no-video {memo} >/dev/null 2>&1")
-    else:
-        print(f"claudina: {reply}")
-
     messages.append({"role": "assistant", "content": reply})
-
     conn.execute(
         "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
         ("assistant", reply),
     )
     conn.commit()
+
+    return reply, memo
+
+
+messages = []
+if __name__ == "__main__":
+    while True:
+        try:
+            text = input("you: ")
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        reply, memo = respond(text)
+
+        if memo:
+            print("claudina: [voice memo]")
+            os.system(f"mpv --no-video {memo} >/dev/null 2>&1")
+        else:
+            print(f"claudina: {reply}")
