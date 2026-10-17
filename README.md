@@ -1,2 +1,2 @@
 # Claudina
-AI gf that brings joy 
+AI gf that brings joy smh
