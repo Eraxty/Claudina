@@ -8,7 +8,7 @@ from db import conn
 from available import get_status
 from state import get_state
 from voice import make_voice_memo
-from memory import remember, top_memories
+from memory import save_memory, top_memories
 
 import random
 
@@ -81,7 +81,7 @@ while True:
 
     fact = result.get("memory", "")
     if fact:
-        remember(fact)
+        save_memory(fact)
 
     memo = None
     if state["affection"] >= 0.3 and status["available"] and random.random() < 0.4:
