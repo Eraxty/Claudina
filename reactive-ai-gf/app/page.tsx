@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 type Message = {
   who: "mine" | "theirs";
   text: string;
+  voice?: string;
 };
 
 const API = "http://localhost:8000";
@@ -54,8 +55,26 @@ function loadSavedMessages(): Message[] {
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
+  const [herTyping, setHerTyping] = useState(false);
   const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
   const lastMessageRef = useRef<HTMLParagraphElement | null>(null);
+
+  function toggleMemo(url: string) {
+    if (playing === url) {
+      audio.current?.pause();
+      setPlaying(null);
+      return;
+    }
+
+    audio.current?.pause();
+    const el = new Audio(`${API}${url}`);
+    audio.current = el;
+    el.onended = () => setPlaying(null);
+    setPlaying(url);
+    void el.play();
+  }
 
   useEffect(() => {
     fetch(`${API}/history`)
@@ -107,6 +126,8 @@ export default function Home() {
 
     setMessages([...messages, { who: "mine", text: message }]);
     setText("");
+    setHerTyping(true);
+    const startedAt = Date.now();
 
     try {
       const res = await fetch(`${API}/chat`, {
@@ -114,14 +135,39 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
-      
+
       const data = await res.json();
-      setMessages((prev) => [...prev, { who: "theirs", text: data.reply }]);
 
       if (data.voice_url) {
-        void new Audio(`${API}${data.voice_url}`).play();
-      }} 
-      catch {
+        const wait = Math.max(0, 2500 - (Date.now() - startedAt));
+
+        setTimeout(() => {
+          setHerTyping(false);
+          const url = `${API}${data.voice_url}`;
+          setMessages((prev) => [
+            ...prev,
+            { who: "theirs", text: "Voice memo", voice: data.voice_url },
+          ]);
+          const el = new Audio(url);
+          audio.current = el;
+          el.onended = () => setPlaying(null);
+          setPlaying(data.voice_url);
+          void el.play();
+        }, wait);
+      } 
+      
+      else {
+        const reply = data.reply ?? "you there??";
+        const typingFor = 1200 + reply.length * 60 + Math.random() * 1500;
+        const wait = Math.max(200, typingFor - (Date.now() - startedAt));
+
+        setTimeout(() => {
+          setHerTyping(false);
+          setMessages((prev) => [...prev, { who: "theirs", text: reply }]);
+        }, wait);
+      }
+    } catch {
+      setHerTyping(false);
       setMessages((prev) => [
         ...prev,
         { who: "theirs", text: "you there?? signal dropped" },
@@ -132,13 +178,26 @@ export default function Home() {
   return (
     <main>
       <header>
-        <div className="avatar">C</div>
+        <img src="/avatar.png" alt="" className="avatar" />
         <h1>Claudina</h1>
       </header>
 
       <div className="chat">
         {messages.map((message, index) => {
           const isLastMessage = index === messages.length - 1;
+
+          if (message.voice) {
+            return (
+              <p
+                key={index}
+                className={`memo${playing === message.voice ? " playing" : ""}`}
+                onClick={() => toggleMemo(message.voice as string)}
+                ref = {isLastMessage ? lastMessageRef : undefined}
+              >
+                <span className="chip"></span>Voice memo
+              </p>
+            );
+          }
 
           return (
             <p
@@ -150,6 +209,14 @@ export default function Home() {
             </p>
           );
         })}
+
+        {herTyping && (
+          <p className="typing">
+            <span></span>
+            <span></span>
+            <span></span>
+          </p>
+        )}
       </div>
 
       <form onSubmit={send}>
