@@ -22,11 +22,13 @@ app.add_middleware(
 
 class ChatIn(BaseModel):
     message: str
+    session_id: str = ""
+    api_key: str = ""
 
 
 @app.post("/chat")
 def chat_route(body: ChatIn):
-    bubbles, memo = respond(body.message)
+    bubbles, memo = respond(body.message, session = body.session_id, api_key = body.api_key or None)
     voice_url = None
 
     if memo:
@@ -36,9 +38,10 @@ def chat_route(body: ChatIn):
 
 
 @app.get("/history")
-def history_route():
+def history_route(session_id: str = ""):
     rows = conn.execute(
-        "SELECT role, content, created_at FROM messages ORDER BY id ASC"
+        "SELECT role, content, created_at FROM messages WHERE session = ? AND content NOT LIKE '%(voice memo)' ORDER BY id ASC",
+        (session_id,),
     ).fetchall()
 
     return {

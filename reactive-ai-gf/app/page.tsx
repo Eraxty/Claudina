@@ -79,6 +79,8 @@ export default function Home() {
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const sessionRef = useRef("");
+  const keyRef = useRef("");
   const lastMessageRef = useRef<HTMLParagraphElement | null>(null);
 
   function toggleMemo(url: string) {
@@ -97,7 +99,28 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetch(`${API}/history`)
+    let sessionId = "";
+
+    try {
+      sessionId = window.localStorage.getItem("claudina-session") || crypto.randomUUID();
+      window.localStorage.setItem("claudina-session", sessionId);
+
+      keyRef.current = window.localStorage.getItem("claudina-key") || "";
+    } catch {
+      sessionId = "anon";
+    }
+
+    if (!keyRef.current) {
+      keyRef.current = window.prompt("your elevenlabs api key (your voice memos, your quota — press Cancel to skip)") || "";
+      try {
+        window.localStorage.setItem("claudina-key", keyRef.current);
+      } catch {
+        // storage blocked, fine
+      }
+    }
+
+    sessionRef.current = sessionId;
+    fetch(`${API}/history?session_id=${encodeURIComponent(sessionId)}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.messages?.length) {
@@ -188,7 +211,7 @@ export default function Home() {
       const res = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, session_id: sessionRef.current, api_key: keyRef.current }),
       });
 
       const data = await res.json();
