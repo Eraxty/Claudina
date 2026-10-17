@@ -7,6 +7,8 @@ type Message = {
   text: string;
 };
 
+const API = "http://localhost:8000";
+
 const STORAGE_KEY = "claudina-chat";
 
 function loadSavedMessages(): Message[] {
@@ -55,9 +57,19 @@ export default function Home() {
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const lastMessageRef = useRef<HTMLParagraphElement | null>(null);
 
-  // load the saved conversation once, after the page has mounted
   useEffect(() => {
-    setMessages(loadSavedMessages()); // eslint-disable-line react-hooks/set-state-in-effect
+    fetch(`${API}/history`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.messages?.length) {
+          setMessages(data.messages);
+        } else {
+          setMessages(loadSavedMessages());
+        }
+      })
+      .catch(() => {
+        setMessages(loadSavedMessages());
+      });
     setConversationLoaded(true);
   }, []);
 
@@ -84,7 +96,7 @@ export default function Home() {
     }
   }, [messages]);
 
-  function send(event: FormEvent<HTMLFormElement>) {
+  async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const message = text.trim();
@@ -95,6 +107,26 @@ export default function Home() {
 
     setMessages([...messages, { who: "mine", text: message }]);
     setText("");
+
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      
+      const data = await res.json();
+      setMessages((prev) => [...prev, { who: "theirs", text: data.reply }]);
+
+      if (data.voice_url) {
+        void new Audio(`${API}${data.voice_url}`).play();
+      }} 
+      catch {
+      setMessages((prev) => [
+        ...prev,
+        { who: "theirs", text: "you there?? signal dropped" },
+      ]);
+    }
   }
 
   return (
