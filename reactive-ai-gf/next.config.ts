@@ -11,8 +11,8 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
+  cacheComponents: !basePath, // PPR: off in export mode, github actions build dies without this
+  partialPrefetching: !basePath,
   turbopack: {
     rules: {
       "*.css": {
