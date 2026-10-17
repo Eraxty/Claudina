@@ -61,7 +61,8 @@ def voice_route(name: str):
     path = os.path.join(MEMOS_DIR, os.path.basename(name))
 
     if os.path.exists(path):
-        return FileResponse(path, media_type = "audio/mpeg")
+        media = "audio/wav" if name.endswith(".wav") else "audio/mpeg"
+        return FileResponse(path, media_type = media)
 
     return {"error": "no such memo"}
 
