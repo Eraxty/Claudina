@@ -123,11 +123,7 @@ export default function Home() {
     fetch(`${API}/history?session_id=${encodeURIComponent(sessionId)}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.messages?.length) {
-          setMessages(data.messages);
-        } else {
-          setMessages(loadSavedMessages());
-        }
+        setMessages(data.messages ?? []);
       })
       .catch(() => {
         setMessages(loadSavedMessages());
