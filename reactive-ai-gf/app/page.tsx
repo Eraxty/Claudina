@@ -171,17 +171,34 @@ export default function Home() {
       }
 
       else {
-        const reply = data.reply ?? "you there??";
-        const typingFor = 1200 + reply.length * 60 + Math.random() * 1500;
-        const wait = Math.max(200, typingFor - (Date.now() - startedAt));
+        const bubbles: string[] = Array.isArray(data.bubbles) && data.bubbles.length
+          ? data.bubbles
+          : [data.reply ?? "you there??"];
 
-        setTimeout(() => {
-          setHerTyping(false);
-          setMessages((prev) => [
-            ...prev,
-            { who: "theirs", text: reply, ts: new Date().toISOString() },
-          ]);
-        }, wait);
+        const sleep = (ms: number) =>
+          new Promise((r) => setTimeout(r, ms));
+
+        const play = async () => {
+          for (const [i, bubble] of bubbles.entries()) {
+            const typingFor = 900 + bubble.length * 50 + Math.random() * 1200;
+            const wait = Math.max(200, typingFor - (Date.now() - startedAt));
+
+            setHerTyping(true);
+            await sleep(wait);
+
+            setHerTyping(false);
+            setMessages((prev) => [
+              ...prev,
+              { who: "theirs", text: bubble, ts: new Date().toISOString() },
+            ]);
+
+            if (i < bubbles.length - 1) {
+              await sleep(500 + Math.random() * 1300);
+            }
+          }
+        };
+
+        void play();
       }
     } catch {
       setHerTyping(false);

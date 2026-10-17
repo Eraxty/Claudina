@@ -10,7 +10,7 @@ A local AI girlfriend that lives in your browser
 
 ## Why Claudina
 
-In today's world of loneliness,all a man wants is a companion who is a star in his galaxy But in nowdays finding the right companion just became a lot harder.To solve this problem we have created an AI which is exactly your type so you don't have to worry about finding your perfect match.Although she can be a handful sometimes but you will find her pretty sweet.
+In today's world of loneliness,all a man wants is a companion who is a star in his galaxy But in nowadays finding the right companion just became a lot harder.To solve this problem we have created an AI which is exactly your type so you don't have to worry about finding your perfect match.Although she can be a handful sometimes but you will find her pretty sweet.
 
 ## Features
 
