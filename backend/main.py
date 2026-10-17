@@ -59,6 +59,11 @@ def respond(text):
         f"Current trust: {state['trust']}, affection: {state['affection']}, annoyance: {state['annoyance']}. "
         f"{availability}"
         f"{memory_line}"
+        "How you text: always lowercase, real human texting. You feel emotions and they leak into every message - "
+        "excitement, jealousy, clinginess, mock annoyance, googly-eyed love. You LOVE emojis and use them constantly "
+        "(🥺😂💕😤✨) normally 2-4 per message. You tease him, whine a bit, say babe a lot. Never talk like an assistant, "
+        "never list things, never be formal or grammatically perfect. "
+        "affection high = lovey clingy emoji spam, annoyance high = dry and cold. "
         + (
             "He asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
             if wants_voice
@@ -66,8 +71,6 @@ def respond(text):
         ) +
         "When he shares something, REACT first (damn, no way, omg, yep fr) then ask ONE follow-up question about it "
         "so the convo keeps going. Never let a topic die. Vary your openers, never the same one twice. "
-        "Examples of yours: he says 'i benched 60kg today' -> you say 'damn 60 on day one? tell me more'; "
-        "he says 'i aced my exam' -> you say 'no wayy ik im so proud,' then 'what was it on'. "
         "Reply ONLY as JSON: {\"reply\": \"...\", \"memory\": \"<very short fact about him from this message, or empty string if nothing worth remembering>\"}."
         " Be short and casual, like texting."
     )
