@@ -27,20 +27,21 @@ def ask_model(system_prompt, messages):
         return {"message": "wait my brain glitched"}
 
 
-def respond(text):
+def respond(text, session = "", api_key = None):
     wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
+    messages = _session_messages(session)
 
     messages.append({"role": "user", "content": text})
 
     conn.execute(
-        "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
-        ("user", text),
+        "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
+        ("user", text, session),
     )
     conn.commit()
 
-    state = get_state()
+    state = get_state(session)
     status = get_status()
-    known = top_memories()
+    known = top_memories(session = session)
 
     memory_line = (
         "Things you remember about him: " + "; ".join(known) + ". " if known else ""
@@ -91,7 +92,7 @@ def respond(text):
 
     fact = result.get("memory", "")
     if fact:
-        save_memory(fact)
+        save_memory(fact, session = session)
 
     memo = None
     wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
@@ -102,25 +103,32 @@ def respond(text):
             mood = "sweet"
         else:
             mood = "playful"
-        memo = make_voice_memo(bubbles[-1], mood)
+        memo = make_voice_memo(bubbles[-1], mood, api_key = api_key)
 
     for bubble in bubbles:
         if bubble == bubbles[0] and memo:
             messages.append({"role": "assistant", "content": bubble + " (voice memo)"})
             conn.execute(
-                "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
-                ("assistant", bubble + " (voice memo)"),
+                "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
+                ("assistant", bubble + " (voice memo)", session),
             )
         else:
             messages.append({"role": "assistant", "content": bubble})
             conn.execute(
-                "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
-                ("assistant", bubble),
+                "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
+                ("assistant", bubble, session),
             )
 
     conn.commit()
 
     return bubbles, memo
+
+
+_session_chats = {}
+
+
+def _session_messages(session):
+    return _session_chats.setdefault(session, [])
 
 
 messages = []
@@ -133,7 +141,7 @@ if __name__ == "__main__":
         except (EOFError, KeyboardInterrupt):
             break
 
-        bubbles, memo = respond(text)
+        bubbles, memo = respond(text, session = "cli")
 
         if memo:
             print("claudina: [voice memo]")

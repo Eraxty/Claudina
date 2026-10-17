@@ -34,4 +34,10 @@ CREATE TABLE IF NOT EXISTS show_progress (
 )
 """)
 conn.execute("INSERT OR IGNORE INTO relationship_state (id) VALUES (1)")
-conn.commit()
+
+for table in ("messages", "relationship_state", "memories"):
+    try:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN session TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass

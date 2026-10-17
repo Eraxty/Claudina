@@ -8,8 +8,8 @@ VOICE_ID = "pFZP5JQG7iQjIQuC4Bku"
 MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
 
 
-def make_voice_memo(text, mood = None):
-    key = os.environ.get("11labs")
+def make_voice_memo(text, mood = None, api_key = None):
+    key = api_key or os.environ.get("11labs")
 
     if not key or not text.strip():
         return None
