@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body { margin: 0; font-family: Arial, sans-serif; }
+main { max-width: 600px; min-height: 100vh; margin: auto; border: 1px solid #ddd; }
+header { padding: 16px; border-bottom: 1px solid #ddd; }
+h1 { margin: 0; font-size: 18px; }
+small { color: #777; }
+.chat { padding: 16px; }
+.chat p { width: fit-content; padding: 10px; border-radius: 16px; background: #eee; }
+form { display: flex; gap: 8px; padding: 16px; border-top: 1px solid #ddd; }
+input { flex: 1; padding: 8px; }
+button { border: 0; background: #0095f6; color: white; padding: 8px 12px; border-radius: 5px; }
