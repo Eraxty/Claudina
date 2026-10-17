@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 const nextConfig: NextConfig = {
-  /* config options here */
-  allowedDevOrigins: ["127.0.0.1"], // unblocks HMR/dev assets when the tab is opened via 127.0.0.1
+  output: "export",
+  basePath: basePath || undefined,
+  trailingSlash: true,
+  images: { unoptimized: true },
+  allowedDevOrigins: ["127.0.0.1", "localhost"], // unblocks HMR/dev assets when the tab is opened via 127.0.0.1
   experimental: {
     agentFeedback: true,
   },

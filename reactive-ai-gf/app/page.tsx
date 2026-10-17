@@ -10,6 +10,7 @@ type Message = {
 };
 
 const API = "http://localhost:8000";
+const PFP = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/avatar.png`;
 
 const STORAGE_KEY = "claudina-chat";
 
@@ -227,7 +228,7 @@ export default function Home() {
     if (message.voice) {
       rows.push(
         <div key={index} className="row">
-          <img src="/avatar.png" alt="" className="mini" />
+          <img src={PFP} alt="" className="mini" />
           <p
             className={`memo${playing === message.voice ? " playing" : ""}`}
             onClick={() => toggleMemo(message.voice as string)}
@@ -259,7 +260,7 @@ export default function Home() {
 
     rows.push(
       <div key={index} className="row">
-        <img src="/avatar.png" alt="" className="mini" />
+        <img src={PFP} alt="" className="mini" />
         <p ref={isLastMessage ? lastMessageRef : undefined}>{message.text}</p>
       </div>
     );
@@ -268,7 +269,7 @@ export default function Home() {
   return (
     <main>
       <header>
-        <img src="/avatar.png" alt="" className="avatar" />
+        <img src={PFP} alt="" className="avatar" />
         <div>
           <h1>Claudina</h1>
           <small>{herTyping ? "typing..." : "Active now"}</small>
