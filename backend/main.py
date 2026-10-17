@@ -28,7 +28,10 @@ def ask_model(system_prompt, messages):
 
 
 def respond(text):
+    wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
+
     messages.append({"role": "user", "content": text})
+
     conn.execute(
         "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
         ("user", text),
@@ -50,11 +53,17 @@ def respond(text):
             else "You are busy, so keep it VERY short or say brb and what you are busy with. "
         )
     )
+    
     system_prompt = (
         f"You are Claudina, texting your boyfriend. "
         f"Current trust: {state['trust']}, affection: {state['affection']}, annoyance: {state['annoyance']}. "
         f"{availability}"
         f"{memory_line}"
+        + (
+            "He asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
+            if wants_voice
+            else ""
+        ) +
         "When he shares something, REACT first (damn, no way, omg, yep fr) then ask ONE follow-up question about it "
         "so the convo keeps going. Never let a topic die. Vary your openers, never the same one twice. "
         "Examples of yours: he says 'i benched 60kg today' -> you say 'damn 60 on day one? tell me more'; "
@@ -62,6 +71,7 @@ def respond(text):
         "Reply ONLY as JSON: {\"reply\": \"...\", \"memory\": \"<very short fact about him from this message, or empty string if nothing worth remembering>\"}."
         " Be short and casual, like texting."
     )
+    
     result = ask_model(system_prompt, messages)
     reply = result.get("reply", "i dont feel soo good smh")
 
@@ -70,7 +80,9 @@ def respond(text):
         save_memory(fact)
 
     memo = None
+    
     wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
+    
     if wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
@@ -81,6 +93,7 @@ def respond(text):
         memo = make_voice_memo(reply, mood)
 
     messages.append({"role": "assistant", "content": reply})
+    
     conn.execute(
         "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
         ("assistant", reply),
