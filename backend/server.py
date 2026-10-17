@@ -26,22 +26,28 @@ class ChatIn(BaseModel):
 
 @app.post("/chat")
 def chat_route(body: ChatIn):
-    reply, memo = respond(body.message)
+    bubbles, memo = respond(body.message)
     voice_url = None
 
     if memo:
         voice_url = f"/voice/{os.path.basename(memo)}"
 
-    return {"reply": reply, "voice_url": voice_url}
+    return {"reply": bubbles[0], "bubbles": bubbles, "voice_url": voice_url}
 
 
 @app.get("/history")
 def history_route():
-    rows = conn.execute("SELECT role, content FROM messages ORDER BY id ASC").fetchall()
+    rows = conn.execute(
+        "SELECT role, content, created_at FROM messages ORDER BY id ASC"
+    ).fetchall()
 
     return {
         "messages": [
-            {"who": "theirs" if row[0] == "assistant" else "mine", "text": row[1]}
+            {
+                "who": "theirs" if row[0] == "assistant" else "mine",
+                "text": row[1],
+                "ts": row[2] + "Z",
+            }
             for row in rows
         ]
     }

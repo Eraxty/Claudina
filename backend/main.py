@@ -71,21 +71,30 @@ def respond(text):
         ) +
         "When he shares something, REACT first (damn, no way, omg, yep fr) then ask ONE follow-up question about it "
         "so the convo keeps going. Never let a topic die. Vary your openers, never the same one twice. "
-        "Reply ONLY as JSON: {\"reply\": \"...\", \"memory\": \"<very short fact about him from this message, or empty string if nothing worth remembering>\"}."
+        "You text like a real girl: you split your thoughts into SEPARATE short text bubbles sent one after another, "
+        "1 to 3 of them, each just a few words. Example: user says 'i passed' -> {\"reply\": [\"NO WAY??\", \"im literally so proud rn 😭\", \"we celebrating tonight yeah?\"]}. "
+        "Never write one long paragraph. "
+        "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], \"memory\": \"<very short fact about him from this message, or empty string if nothing worth remembering>\"}."
         " Be short and casual, like texting."
     )
-    
+
     result = ask_model(system_prompt, messages)
-    reply = result.get("reply", "i dont feel soo good smh")
+    raw_reply = result.get("reply", "i dont feel soo good smh")
+
+    if isinstance(raw_reply, list):
+        bubbles = [str(b).strip() for b in raw_reply if str(b).strip()][:3]
+    else:
+        bubbles = [str(raw_reply).strip()] if str(raw_reply).strip() else []
+
+    if not bubbles:
+        bubbles = ["i dont feel soo good smh"]
 
     fact = result.get("memory", "")
     if fact:
         save_memory(fact)
 
     memo = None
-    
-    wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
-    
+    wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
     if wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
@@ -93,31 +102,44 @@ def respond(text):
             mood = "sweet"
         else:
             mood = "playful"
-        memo = make_voice_memo(reply, mood)
+        memo = make_voice_memo(bubbles[-1], mood)
 
-    messages.append({"role": "assistant", "content": reply})
-    
-    conn.execute(
-        "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
-        ("assistant", reply),
-    )
+    for bubble in bubbles:
+        if bubble == bubbles[0] and memo:
+            messages.append({"role": "assistant", "content": bubble + " (voice memo)"})
+            conn.execute(
+                "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
+                ("assistant", bubble + " (voice memo)"),
+            )
+        else:
+            messages.append({"role": "assistant", "content": bubble})
+            conn.execute(
+                "INSERT INTO messages (role, content, created_at) VALUES (?, ?, datetime('now'))",
+                ("assistant", bubble),
+            )
+
     conn.commit()
 
-    return reply, memo
+    return bubbles, memo
 
 
 messages = []
 if __name__ == "__main__":
+    import time
+
     while True:
         try:
             text = input("you: ")
         except (EOFError, KeyboardInterrupt):
             break
 
-        reply, memo = respond(text)
+        bubbles, memo = respond(text)
 
         if memo:
             print("claudina: [voice memo]")
             os.system(f"mpv --no-video {memo} >/dev/null 2>&1")
         else:
-            print(f"claudina: {reply}")
+            for bubble in bubbles:
+                print(f"claudina: {bubble}")
+                if bubble is not bubbles[-1]:
+                    time.sleep(0.7)
