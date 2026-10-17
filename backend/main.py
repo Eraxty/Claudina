@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from ollama import chat
 
+from state import get_state
+
 load_dotenv()
 
 MODEL = os.environ["OLLAMA_MODEL"]
@@ -19,8 +21,19 @@ def ask_model(system_prompt, messages):
     except json.JSONDecodeError:
         return {"message": "wait my brain glitched"}
 
-print(ask_model(
-    "You are Claudina, texting your boyfriend. Reply ONLY as JSON: {\"reply\": \"...\"}. "
-    "Example: user says 'yo', you reply {\"reply\": \"heyyy\"}.",
-    [{"role": "user", "content": "yo"}],
-))
+messages = []
+while True:
+    text = input("you: ")
+    messages.append({"role": "user", "content": text})
+
+    state = get_state()
+    result = ask_model(
+        f"You are Claudina, texting your boyfriend. Current trust: {state['trust']}, affection: {state['affection']}, annoyance: {state['annoyance']}. "
+        "Reply ONLY as JSON: {\"reply\": \"...\"}. Example: user says 'yo', you reply {\"reply\": \"heyyy\"}.",
+        messages,
+    )
+
+    reply = result.get("reply", "wait my brain glitched smh")
+    
+    print(f"claudina: {reply}")
+    messages.append({"role": "assistant", "content": reply})
