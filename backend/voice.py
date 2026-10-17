@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import urllib.request
 from datetime import datetime
 
@@ -12,6 +13,10 @@ def make_voice_memo(text, mood = None):
 
     if not key or not text.strip():
         return None
+
+    text = re.sub(
+        "[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+", "", text
+    ).strip()
 
     opener = {
         "playful": "[laughs] ",

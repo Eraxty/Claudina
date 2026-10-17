@@ -192,9 +192,14 @@ export default function Home() {
                 key={index}
                 className={`memo${playing === message.voice ? " playing" : ""}`}
                 onClick={() => toggleMemo(message.voice as string)}
-                ref = {isLastMessage ? lastMessageRef : undefined}
+                ref={isLastMessage ? lastMessageRef : undefined}
               >
-                <span className="chip"></span>Voice memo
+                <span className="chip"></span>
+                <span className="wave">
+                  {[3, 7, 5, 9, 6, 10, 4, 8, 5, 9, 6, 4].map((h, i) => (
+                    <i key = {i} style = {{ height: `${h}px`, animationDelay: `${i * 0.07}s` }}></i>
+                  ))}
+                </span>
               </p>
             );
           }

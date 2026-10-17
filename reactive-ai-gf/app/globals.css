@@ -78,6 +78,30 @@ small { color: #777; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='4' y='3' width='3' height='10' fill='%23b08968'/%3E%3Crect x='9' y='3' width='3' height='10' fill='%23b08968'/%3E%3C/svg%3E");
 }
 
+.chat .memo .wave {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  width: 90px;
+  height: 14px;
+}
+
+.chat .memo .wave i {
+  width: 2.5px;
+  min-height: 2px;
+  border-radius: 2px;
+  background: #b08968;
+}
+
+.chat .memo.playing .wave i {
+  animation: bounce 0.9s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(2.1); }
+}
+
 @keyframes blink {
   0%, 60%, 100% { opacity: 0.3; }
   30% { opacity: 1; }
