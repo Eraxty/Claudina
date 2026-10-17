@@ -1,56 +1,79 @@
 import os
-import json
 import re
-import urllib.request
+import threading
+
 from datetime import datetime
 
-VOICE_ID = "pFZP5JQG7iQjIQuC4Bku"
+import numpy as np
+import soundfile as sf
+
 MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
+
+MOOD_VOICES = {
+    "playful": ("af_heart", 1.03),
+    "sweet": ("af_bella", 1.00),
+    "annoyed": ("af_nicole", 1.08),
+    "busy": ("af_nicole", 0.95),
+    "excited": ("af_sky", 1.08),
+}
+
+MOOD_VOICES[None] = ("af_heart", 1.0)
+
+lock = threading.Lock()
+voice_engine = None
+
+
+def load_voice_engine():
+    global voice_engine
+
+    if voice_engine is not None:
+        return voice_engine
+
+    with lock:
+        if voice_engine is None:
+            from kokoro import KPipeline
+
+            voice_engine = KPipeline(lang_code = "a")
+
+    return voice_engine
+
+
+def clean_for_speaking(text):
+    text = re.sub(r"\[[^\]]*\]", " ", text)
+    text = re.sub(
+        "[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+", " ", text
+    )
+
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def make_voice_memo(text, mood = None, api_key = None):
-    key = api_key or os.environ.get("11labs")
+    text = clean_for_speaking(text)
 
-    if not key or not text.strip():
+    if not text:
         return None
 
-    text = re.sub(
-        "[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+", "", text
-    ).strip()
-
-    opener = {
-        "playful": "[laughs] ",
-        "sweet": "[giggles] ",
-        "annoyed": "[sighs] ",
-        "busy": "[whispers] ",
-        "excited": "[gasps] ",
-    }.get(mood, "")
+    voice_id, speed = MOOD_VOICES.get(mood, MOOD_VOICES[None])
+    audio_chunks = []
 
     try:
-        os.makedirs(MEMOS_DIR, exist_ok = True)
+        engine = load_voice_engine()
 
-        req = urllib.request.Request(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}",
-            data = json.dumps({
-                "text": opener + text,
-                "model_id": "eleven_v3",
-            }).encode(),
-            
-            headers = {"xi-api-key": key, "Content-Type": "application/json"},
-            method = "POST",
-        
-        )
-        audio = urllib.request.urlopen(req, timeout = 30).read()
+        for spoken in engine(text, voice = voice_id, speed = speed):
+            if spoken.audio is None:
+                continue
 
-        if not audio.startswith(b"ID3") and audio[:2] != b"\xff\xfb":
-            return None
+            audio_chunks.append(spoken.audio)
 
-        path = os.path.join(MEMOS_DIR, f"claudina_{datetime.now().timestamp():.0f}.mp3")
-        
-        with open(path, "wb") as f:
-            f.write(audio)
-
-        return path
-    
     except Exception:
         return None
+
+    if not audio_chunks:
+        return None
+
+    os.makedirs(MEMOS_DIR, exist_ok = True)
+
+    path = os.path.join(MEMOS_DIR, f"claudina_{datetime.now().timestamp():.0f}.wav")
+    sf.write(path, np.concatenate(audio_chunks), 24000)
+
+    return path
