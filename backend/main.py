@@ -14,7 +14,7 @@ import random
 
 load_dotenv()
 
-MODEL = os.environ["OLLAMA_MODEL"]
+MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
 
 
 def ask_model(system_prompt, messages):
@@ -27,7 +27,7 @@ def ask_model(system_prompt, messages):
         return {"message": "wait my brain glitched"}
 
 
-def respond(text, session = "", api_key = None):
+def respond(text, session = ""):
     wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
     messages = _session_messages(session)
 
@@ -103,7 +103,7 @@ def respond(text, session = "", api_key = None):
             mood = "sweet"
         else:
             mood = "playful"
-        memo = make_voice_memo(bubbles[-1], mood, api_key = api_key)
+        memo = make_voice_memo(bubbles[-1], mood)
 
     for bubble in bubbles:
         if bubble == bubbles[0] and memo:

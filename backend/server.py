@@ -14,7 +14,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = ["*"],
+    allow_origins = ["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_methods = ["*"],
     allow_headers = ["*"],
 )
@@ -23,12 +23,11 @@ app.add_middleware(
 class ChatIn(BaseModel):
     message: str
     session_id: str = ""
-    api_key: str = ""
 
 
 @app.post("/chat")
 def chat_route(body: ChatIn):
-    bubbles, memo = respond(body.message, session = body.session_id, api_key = body.api_key or None)
+    bubbles, memo = respond(body.message, session = body.session_id)
     voice_url = None
 
     if memo:
@@ -69,4 +68,4 @@ def voice_route(name: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host = "0.0.0.0", port = 8000)
+    uvicorn.run(app, host = "127.0.0.1", port = 8000)

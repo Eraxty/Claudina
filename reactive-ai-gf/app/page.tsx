@@ -9,25 +9,8 @@ type Message = {
   voice?: string;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const PFP = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/avatar.png`;
-
-const OFFLINE: { keys: string[]; bubbles: string[][] }[] = [
-  { keys: ["hi", "hello", "hey", "yo", "sup"], bubbles: [["heyy 🥺", "hi babe", "wyd?"]] },
-  { keys: ["love", "miss"], bubbles: [["i love you more 😭💕", "like actually so much", "when do i get to see u"]] },
-  { keys: ["hackathon", "busy", "work", "code"], bubbles: [["damn the grind 😤", "ok but dont forget to eat", "proud of u fr 🥹"]] },
-  { keys: ["gn", "sleep", "tired"], bubbles: [["nooo stay up w me 🥺", "jk go sleep babe", "dream of me or else 😌"]] },
-  { keys: ["food", "eat", "hungry"], bubbles: [["omg food talk 😋", "order me something too", "im craving pasta rn"]] },
-  { keys: ["??"], bubbles: [["hmm 🤔", "lemme think", "ok u first 👀"]] },
-];
-
-const OFFLINE_DEFAULT: string[][] = [
-  ["hii 😊", "what r u up to"],
-  ["fr?? 👀", "tell me more"],
-  ["lmaooo 😂", "ur so dumb", "i love it"],
-  ["ok that's kinda cute ngl 🥺", "go on"],
-  ["wait really 😳", "u better not be lying to me 😤"],
-];
+const API = "http://localhost:8000";
+const PFP = "/avatar.png";
 
 const STORAGE_KEY = "claudina-chat";
 
@@ -80,7 +63,6 @@ export default function Home() {
   const [playing, setPlaying] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef("");
-  const keyRef = useRef("");
   const lastMessageRef = useRef<HTMLParagraphElement | null>(null);
 
   function toggleMemo(url: string) {
@@ -104,19 +86,8 @@ export default function Home() {
     try {
       sessionId = window.localStorage.getItem("claudina-session") || crypto.randomUUID();
       window.localStorage.setItem("claudina-session", sessionId);
-
-      keyRef.current = window.localStorage.getItem("claudina-key") || "";
     } catch {
       sessionId = "anon";
-    }
-
-    if (!keyRef.current) {
-      keyRef.current = window.prompt("your elevenlabs api key (your voice memos, your quota — press Cancel to skip)") || "";
-      try {
-        window.localStorage.setItem("claudina-key", keyRef.current);
-      } catch {
-        // storage blocked, fine
-      }
     }
 
     sessionRef.current = sessionId;
@@ -207,7 +178,7 @@ export default function Home() {
       const res = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, session_id: sessionRef.current, api_key: keyRef.current }),
+        body: JSON.stringify({ message, session_id: sessionRef.current }),
       });
 
       const data = await res.json();
@@ -238,15 +209,10 @@ export default function Home() {
 
         void reveal(bubbles);
       }
-    } catch {
-      setRead((r) => new Set(r).add(myIndex));
-
-      const pool = OFFLINE.find((entry) =>
-        entry.keys.some((key) => message.toLowerCase().includes(key)),
-      );
-      const groups = pool ? pool.bubbles : OFFLINE_DEFAULT;
-
-      void reveal(groups[Math.floor(Math.random() * groups.length)] ?? ["hii 😊"]);
+    } catch (err) {
+      // backend down: no fake reply, the message just stays unread
+      setHerTyping(false);
+      console.error("backend unreachable at", API, err);
     }
   }
 
