@@ -47,7 +47,7 @@ def clean_for_speaking(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def make_voice_memo(text, mood = None, api_key = None):
+def make_voice_memo(text, mood = None):
     text = clean_for_speaking(text)
 
     if not text:
