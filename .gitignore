@@ -4,3 +4,5 @@ venv/
 __pycache__/
 voice_memos/
 insta_session.json
+claudina-lora/
+claudina-model/

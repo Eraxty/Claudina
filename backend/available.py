@@ -3,6 +3,7 @@ import random
 import os
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 WEEKDAY = [
@@ -48,7 +49,8 @@ def skip_time(hours = 0):
 
 
 def current_time():
-    return datetime.now() + timedelta(hours = _load_offset())
+    # she lives in new york so follow NY time
+    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo = None) + timedelta(hours = _load_offset())
 
 
 def get_status(now = None):
