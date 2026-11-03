@@ -1,3 +1,5 @@
+import sqlite3
+
 from db import conn
 
 conn.execute("""
@@ -21,6 +23,13 @@ if not conn.execute("SELECT 1 FROM user_state WHERE session = ''").fetchone():
         conn.execute("INSERT INTO user_state (session) VALUES ('')")
 
     conn.commit()
+
+
+try:
+    conn.execute("ALTER TABLE user_state ADD COLUMN minor INTEGER NOT NULL DEFAULT 0")
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
 
 
 def get_state(session = ""):
@@ -51,3 +60,15 @@ def update_state(trust_delta = 0.0, affection_delta = 0.0, annoyance_delta = 0.0
     conn.commit()
 
     return {"trust": trust, "affection": affection, "annoyance": annoyance}
+
+
+def is_minor(session = ""):
+    row = conn.execute("SELECT minor FROM user_state WHERE session = ?", (session,)).fetchone()
+
+    return bool(row and row[0])
+
+
+def mark_minor(session = ""):
+    get_state(session)
+    conn.execute("UPDATE user_state SET minor = 1 WHERE session = ?", (session,))
+    conn.commit()
