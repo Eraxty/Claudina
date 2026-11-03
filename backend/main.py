@@ -1,12 +1,13 @@
 import json
 import os
+import re
 
 from dotenv import load_dotenv
 from ollama import chat
 
 from db import conn
 from available import get_status
-from state import get_state
+from state import get_state, update_state, is_minor, mark_minor
 from voice import make_voice_memo
 from memory import save_memory, top_memories
 
@@ -15,6 +16,13 @@ import random
 load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+
+# "im 15", "16 yo", "im in 9th grade" etc
+UNDERAGE = re.compile(
+    r"\b(i['’]?m|i am) (only )?(1[0-7]\b(?! ?(min|hour|hr))|in (\d+th grade|middle school|high ?school))"
+    r"|\b1[0-7] ?(yo|y/o|years old)\b",
+    re.IGNORECASE,
+)
 
 
 def ask_model(system_prompt, messages):
@@ -27,7 +35,7 @@ def ask_model(system_prompt, messages):
         return {"message": "wait my brain glitched"}
 
 
-def respond(text, session = ""):
+def respond(text, session = "", owner = True, name = ""):
     wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
     messages = _session_messages(session)
 
@@ -38,6 +46,17 @@ def respond(text, session = ""):
         ("user", text, session),
     )
     conn.commit()
+
+    kid = False
+
+    if not owner:
+        # kids and people she already gave up on get left on read
+        if is_minor(session) or get_state(session)["affection"] <= 0.05:
+            return [], None
+
+        if UNDERAGE.search(text):
+            mark_minor(session)
+            kid = True
 
     state = get_state(session)
     status = get_status()
@@ -79,13 +98,55 @@ def respond(text, session = ""):
         " Be short and casual, like texting."
     )
 
+    if not owner:
+        interest = state["affection"]
+
+        if kid:
+            vibe = "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
+        elif interest >= 0.7:
+        elif interest >= 0.45:
+            vibe = "They're kinda growing on you, be more playful, but don't flirt yet. "
+        else:
+            vibe = "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off or be dry. "
+
+        system_prompt = (
+            f"You are Claudina, a girl in college. @{name} is texting you on Instagram and you don't know them well. "
+            f"{availability}"
+            f"{memory_line}"
+            f"{vibe}"
+            "You don't have to keep the convo going. Split it into 1 to 3 short text bubbles. "
+            "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], \"memory\": \"<short fact about them, or empty string>\", "
+            "\"interest\": <-0.2 to 0.2, funny or respectful makes it go up, creepy, rude or pushy makes it go down>, "
+            "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
+        )
+
     result = ask_model(system_prompt, messages)
+
+    if not owner and not kid:
+        # the model caught a kid the regex missed, just don't answer
+        if str(result.get("minor")).lower() == "true":
+            mark_minor(session)
+            return [], None
+
+        try:
+            change = max(-0.2, min(0.2, float(result.get("interest", 0))))
+        except (TypeError, ValueError):
+            change = 0
+
+        state = update_state(affection_delta = change, session = session)
+
+        if state["affection"] <= 0.05:
+            return [], None
+
     raw_reply = result.get("reply", "i dont feel soo good smh")
 
     if isinstance(raw_reply, list):
         bubbles = [str(b).strip() for b in raw_reply if str(b).strip()][:3]
     else:
         bubbles = [str(raw_reply).strip()] if str(raw_reply).strip() else []
+
+    if not bubbles and not owner:
+        return [], None
 
     if not bubbles:
         bubbles = ["i dont feel soo good smh"]
@@ -96,7 +157,7 @@ def respond(text, session = ""):
 
     memo = None
     wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
-    if wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4):
+    if owner and (wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4)):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
         elif state["affection"] >= 0.7 or wants_voice:

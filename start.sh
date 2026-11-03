@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
-# starts claudina on this machine: ollama, backend on :8000, website on :3000
+# starts claudina on this machine: ollama, then a chat with her in this terminal
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 BACKEND="$ROOT/backend"
-FRONTEND="$ROOT/reactive-ai-gf"
-URL="http://localhost:3000"
 
 die() {
   echo "error: $*" >&2
   exit 1
-}
-
-port_busy() {
-  (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
 }
 
 # kokoro (her voice) only installs on python 3.10 - 3.12
@@ -35,15 +29,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 command -v ollama >/dev/null || die "ollama not found, install it from https://ollama.com"
-command -v node >/dev/null || die "node not found, install Node.js 20.9+ from https://nodejs.org"
-node -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 20 || (a === 20 && b >= 9) ? 0 : 1)' \
-  || die "node $(node --version) is too old, Next.js needs 20.9+"
-
-for port in 3000 8000; do
-  if port_busy "$port"; then
-    die "port $port is already in use, is claudina already running?"
-  fi
-done
 
 # ollama: start it ourselves if it isn't already running
 if ! ollama list >/dev/null 2>&1; then
@@ -79,33 +64,22 @@ if ! cmp -s "$BACKEND/requirements.txt" "$BACKEND/venv/.installed" 2>/dev/null; 
   cp "$BACKEND/requirements.txt" "$BACKEND/venv/.installed"
 fi
 
-# frontend deps, reinstalled whenever package-lock.json changes
-if ! cmp -s "$FRONTEND/package-lock.json" "$FRONTEND/node_modules/.installed" 2>/dev/null; then
-  echo "installing website packages..."
-  (cd "$FRONTEND" && npm ci)
-  cp "$FRONTEND/package-lock.json" "$FRONTEND/node_modules/.installed"
+INSTA=""
+if [ -f "$BACKEND/.env" ]; then
+  INSTA="$(sed -n 's/^INSTA_USERNAME=//p' "$BACKEND/.env" | tail -n 1 | tr -d "\"'")"
 fi
 
-(cd "$BACKEND" && exec venv/bin/python server.py) &
-BACKEND_PID=$!
-(cd "$FRONTEND" && exec node_modules/.bin/next dev -p 3000) &
-FRONTEND_PID=$!
+cd "$BACKEND"
 
-echo "waking her up..."
-until port_busy 8000 && port_busy 3000; do
-  kill -0 "$BACKEND_PID" 2>/dev/null || die "backend crashed, see the output above"
-  kill -0 "$FRONTEND_PID" 2>/dev/null || die "website crashed, see the output above"
-  sleep 1
-done
-
-echo
-echo "claudina is up at $URL  (ctrl+c to stop)"
-echo
-
-if command -v xdg-open >/dev/null; then
-  xdg-open "$URL" >/dev/null 2>&1 || true
-elif command -v open >/dev/null; then
-  open "$URL" || true
+# instagram if her account is set up in .env, otherwise chat right here
+if [ -n "$INSTA" ]; then
+  echo
+  echo "claudina is up on instagram as @$INSTA  (ctrl+c to stop)"
+  echo
+  venv/bin/python insta.py
+else
+  echo
+  echo "claudina is up, say hi  (ctrl+d to stop)"
+  echo
+  venv/bin/python main.py
 fi
-
-wait
