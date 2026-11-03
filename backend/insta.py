@@ -13,7 +13,6 @@ load_dotenv()
 
 USERNAME = os.environ.get("INSTA_USERNAME", "")
 PASSWORD = os.environ.get("INSTA_PASSWORD", "")
-OWNER = os.environ.get("INSTA_OWNER", "").lstrip("@")
 
 SESSION_FILE = os.path.join(os.path.dirname(__file__), "insta_session.json")
 
@@ -42,7 +41,6 @@ def login():
 
 def run():
     cl = login()
-    owner_id = str(cl.user_id_from_username(OWNER))
     started = datetime.now()
     last_seen = {}
 
@@ -75,7 +73,7 @@ def run():
 
                 print(f"{user.username}: {text}")
 
-                bubbles, memo = respond(text, session = f"insta:{user.pk}", owner = str(user.pk) == owner_id, name = user.username)
+                bubbles, memo = respond(text, session = f"insta:{user.pk}", name = user.username, voice = False)
 
                 if not bubbles:
                     continue

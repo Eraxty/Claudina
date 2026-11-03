@@ -24,6 +24,8 @@ UNDERAGE = re.compile(
     re.IGNORECASE,
 )
 
+EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
+
 
 def ask_model(system_prompt, messages):
     full_messages = [{"role": "system", "content": system_prompt}] + messages
@@ -35,8 +37,8 @@ def ask_model(system_prompt, messages):
         return {"message": "wait my brain glitched"}
 
 
-def respond(text, session = "", owner = True, name = ""):
-    wants_voice = any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
+def respond(text, session = "", name = "", voice = True):
+    wants_voice = voice and any(w in text.lower() for w in ("voice", "memo", "record", "speak"))
     messages = _session_messages(session)
 
     messages.append({"role": "user", "content": text})
@@ -47,23 +49,29 @@ def respond(text, session = "", owner = True, name = ""):
     )
     conn.commit()
 
-    kid = False
+    # kids get left on read for good
+    if is_minor(session):
+        return [], None
 
-    if not owner:
-        # kids and people she already gave up on get left on read
-        if is_minor(session) or get_state(session)["affection"] <= 0.05:
+    # people she's mad at get ignored for a few hours, then she cools off
+    if get_state(session)["affection"] <= 0.05:
+        if _hours_since_reply(session) < 6:
             return [], None
 
-        if UNDERAGE.search(text):
-            mark_minor(session)
-            kid = True
+        update_state(affection_delta = 0.15, session = session)
+
+    kid = False
+
+    if UNDERAGE.search(text):
+        mark_minor(session)
+        kid = True
 
     state = get_state(session)
     status = get_status()
     known = top_memories(session = session)
 
     memory_line = (
-        "Things you remember about him: " + "; ".join(known) + ". " if known else ""
+        "Things you remember about them: " + "; ".join(known) + ". " if known else ""
     )
     availability = (
         f"Right now you are {status['doing']}. "
@@ -74,62 +82,49 @@ def respond(text, session = "", owner = True, name = ""):
         )
     )
     
+    interest = state["affection"]
+
+    if kid:
+        vibe = "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
+    elif interest >= 0.85:
+    elif interest >= 0.7:
+        vibe = "You have a crush on them, flirt back, but you're not dating yet. "
+    elif interest >= 0.45:
+        vibe = "They're growing on you, be playful, but don't flirt yet. "
+    else:
+        vibe = "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off or be dry. "
+
     system_prompt = (
-        f"You are Claudina, texting your boyfriend. "
-        f"Current trust: {state['trust']}, affection: {state['affection']}, annoyance: {state['annoyance']}. "
+        "You are Claudina, 20, second year psych student. You love music, late night drives and roasting people you like. "
+        f"You're texting {name or 'someone'} on Instagram. "
+        f"{vibe}"
         f"{availability}"
         f"{memory_line}"
-        "How you text: always lowercase, real human texting. You feel emotions and they leak into every message - "
-        "excitement, jealousy, clinginess, mock annoyance, googly-eyed love. You LOVE emojis and use them constantly "
-        "(🥺😂💕😤✨) normally 2-4 per message. You tease him, whine a bit, say babe a lot. Never talk like an assistant, "
-        "never list things, never be formal or grammatically perfect. "
-        "affection high = lovey clingy emoji spam, annoyance high = dry and cold. "
         + (
-            "He asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
+            "They asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
             if wants_voice
             else ""
         ) +
-        "When he shares something, REACT first (damn, no way, omg, yep fr) then ask ONE follow-up question about it "
-        "so the convo keeps going. Never let a topic die. Vary your openers, never the same one twice. "
-        "You text like a real girl: you split your thoughts into SEPARATE short text bubbles sent one after another, "
-        "1 to 3 of them, each just a few words. Example: user says 'i passed' -> {\"reply\": [\"NO WAY??\", \"im literally so proud rn 😭\", \"we celebrating tonight yeah?\"]}. "
-        "Never write one long paragraph. "
-        "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], \"memory\": \"<very short fact about him from this message, or empty string if nothing worth remembering>\"}."
-        " Be short and casual, like texting."
+        "Text like a real girl on her phone, not an assistant: short and lazy, use stuff like u, ur, rn, ngl, idk, lmao, fr, tbh, hbu. "
+        "Most texts have no emoji, one at most. Match their energy, a dry text gets a short reply. "
+        "Have opinions and joke around, don't just say cool or nice. "
+        "Send 1 to 3 bubbles, usually 1. "
+        "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
+        "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
+        "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
-
-    if not owner:
-        interest = state["affection"]
-
-        if kid:
-            vibe = "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
-        elif interest >= 0.7:
-        elif interest >= 0.45:
-            vibe = "They're kinda growing on you, be more playful, but don't flirt yet. "
-        else:
-            vibe = "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off or be dry. "
-
-        system_prompt = (
-            f"You are Claudina, a girl in college. @{name} is texting you on Instagram and you don't know them well. "
-            f"{availability}"
-            f"{memory_line}"
-            f"{vibe}"
-            "You don't have to keep the convo going. Split it into 1 to 3 short text bubbles. "
-            "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], \"memory\": \"<short fact about them, or empty string>\", "
-            "\"interest\": <-0.2 to 0.2, funny or respectful makes it go up, creepy, rude or pushy makes it go down>, "
-            "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
-        )
 
     result = ask_model(system_prompt, messages)
 
-    if not owner and not kid:
+    if not kid:
         # the model caught a kid the regex missed, just don't answer
         if str(result.get("minor")).lower() == "true":
             mark_minor(session)
             return [], None
 
+        # she warms up slow but goes off people fast, unless she's dating them
         try:
-            change = max(-0.2, min(0.2, float(result.get("interest", 0))))
+            change = max(-0.05 if interest >= 0.85 else -0.2, min(0.03, float(result.get("interest", 0))))
         except (TypeError, ValueError):
             change = 0
 
@@ -145,19 +140,37 @@ def respond(text, session = "", owner = True, name = ""):
     else:
         bubbles = [str(raw_reply).strip()] if str(raw_reply).strip() else []
 
-    if not bubbles and not owner:
-        return [], None
+    # nobody texts with capitals, apostrophes, commas or full stops
+    bubbles = [b.lower().replace("’", "").replace("'", "").replace(",", "").rstrip(".") for b in bubbles]
+
+    # she spams emojis, let one through now and then
+    allowed = random.random() < 0.4
+    cleaned = []
+
+    for b in bubbles:
+        for e in EMOJI.findall(b):
+            if allowed:
+                allowed = False
+            else:
+                b = b.replace(e, "", 1).strip()
+
+        if b:
+            cleaned.append(b)
+
+    bubbles = cleaned or bubbles[:1]
 
     if not bubbles:
-        bubbles = ["i dont feel soo good smh"]
+        return [], None
 
-    fact = result.get("memory", "")
-    if fact:
+    fact = str(result.get("memory", ""))
+
+    # the model makes stuff up, only keep it if it's about something they actually said
+    if any(w in text.lower() for w in re.findall(r"[a-z]{5,}", fact.lower())):
         save_memory(fact, session = session)
 
     memo = None
     wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
-    if owner and (wants_voice or (status["available"] and state["affection"] >= 0.3 and random.random() < 0.4)):
+    if voice and (wants_voice or (status["available"] and state["affection"] >= 0.7 and random.random() < 0.4)):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
         elif state["affection"] >= 0.7 or wants_voice:
@@ -185,11 +198,22 @@ def respond(text, session = "", owner = True, name = ""):
     return bubbles, memo
 
 
-_session_chats = {}
-
-
 def _session_messages(session):
-    return _session_chats.setdefault(session, [])
+    rows = conn.execute(
+        "SELECT role, content FROM messages WHERE session = ? ORDER BY id DESC LIMIT 30",
+        (session,),
+    ).fetchall()
+
+    return [{"role": role, "content": content} for role, content in reversed(rows)]
+
+
+def _hours_since_reply(session):
+    row = conn.execute(
+        "SELECT (julianday('now') - julianday(created_at)) * 24 FROM messages WHERE session = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+        (session,),
+    ).fetchone()
+
+    return row[0] if row else 99
 
 
 messages = []
