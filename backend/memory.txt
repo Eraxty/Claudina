@@ -1,5 +1,47 @@
-0.6 | 2026-10-17 09:02:32 | he hates u
-0.6 | 2026-10-17 08:59:19 | he likes sports
-0.6 | 2026-10-17 08:54:55 | he likes his voice
-0.6 | 2026-10-17 08:44:13 | meditation
-0.6 | 2026-10-17 08:34:29 | he’s into sports
+0.6 | 2026-11-03 11:18:01 | [insta:59220797384] He thinks we're somehow close
+0.6 | 2026-11-03 11:15:44 | [insta:59220797384] He’s…a lot. Definitely needs some boundaries
+0.6 | 2026-11-03 11:01:27 | [insta:59220797384] He used the term ‘wsp’ - outdated slang, but I kind of like it
+0.6 | 2026-11-03 08:50:50 | [insta:59220797384] he likes weird documentaries
+0.6 | 2026-11-03 08:48:20 | [insta:59220797384] he called me babe
+0.6 | 2026-11-01 13:13:10 | [cli] he said he wants to fuck me
+0.6 | 2026-11-01 13:11:42 | [cli] he said he missed me
+0.6 | 2026-10-17 18:23:17 | [e2e] he said 'hey are you awake'
+0.6 | 2026-10-17 18:17:19 | [test] he said he passed his exam
+0.6 | 2026-10-17 11:09:57 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he's acting strange
+0.6 | 2026-10-17 11:08:53 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he’s acting strange
+0.6 | 2026-10-17 10:56:00 | [2af8f9e4-d99b-4e87-90c7-0baf307c0deb] he likes swearing
+0.6 | 2026-10-17 10:55:25 | [2af8f9e4-d99b-4e87-90c7-0baf307c0deb] he likes scary movies & now this
+0.6 | 2026-10-17 10:55:00 | [bdd7699c-b7e3-4e7a-81cc-34dde9809b5a] he loves greek mythology
+0.6 | 2026-10-17 10:54:45 | [bdd7699c-b7e3-4e7a-81cc-34dde9809b5a] he's really into greek mythology
+0.6 | 2026-10-17 10:53:35 | [2af8f9e4-d99b-4e87-90c7-0baf307c0deb] he likes scary movies
+0.6 | 2026-10-17 10:51:57 | [99072a24-0766-460b-aec9-291191de638d] he said yooo
+0.6 | 2026-10-17 10:51:37 | [63e69c60-5bed-422d-801b-dc1c29b471bc] he calls me bot
+0.6 | 2026-10-17 10:50:15 | [9c21543c-cd74-454f-a2d3-919ea12c900c] he sent a selfie
+0.6 | 2026-10-17 10:50:13 | [66168d4a-196f-48a2-80a0-fea836978c4e] he’s expressing displeasure, apologizing, then expressing displeasure again
+0.6 | 2026-10-17 10:49:56 | [66168d4a-196f-48a2-80a0-fea836978c4e] he wants me to look at his github
+0.6 | 2026-10-17 10:49:16 | [9c21543c-cd74-454f-a2d3-919ea12c900c] he asked what he can do for me
+0.6 | 2026-10-17 10:48:45 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he thinks he can win
+0.6 | 2026-10-17 10:48:43 | [9c21543c-cd74-454f-a2d3-919ea12c900c] he asked me what he can do for me
+0.6 | 2026-10-17 10:48:29 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he’s in a hackathon
+0.6 | 2026-10-17 10:48:16 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he called me babe
+0.6 | 2026-10-17 10:48:04 | [63e69c60-5bed-422d-801b-dc1c29b471bc] he called me bot
+0.6 | 2026-10-17 10:47:38 | [bdd7699c-b7e3-4e7a-81cc-34dde9809b5a] he doesn’t like mornings
+0.6 | 2026-10-17 10:47:36 | [66168d4a-196f-48a2-80a0-fea836978c4e] he called me a ‘stupid bitch’
+0.6 | 2026-10-17 10:46:59 | [66168d4a-196f-48a2-80a0-fea836978c4e] he’s expressing displeasure
+0.6 | 2026-10-17 10:46:05 | [bdd7699c-b7e3-4e7a-81cc-34dde9809b5a] he doesn't like mornings
+0.6 | 2026-10-17 10:45:31 | [66168d4a-196f-48a2-80a0-fea836978c4e] he apologized
+0.6 | 2026-10-17 10:45:04 | [66168d4a-196f-48a2-80a0-fea836978c4e] he’s currently expressing displeasure
+0.6 | 2026-10-17 10:45:03 | [90f9dc0f-d420-4b54-9f74-2eb0b16043d0] he mentioned eraxity last week
+0.6 | 2026-10-17 10:44:46 | [90f9dc0f-d420-4b54-9f74-2eb0b16043d0] he mentioned a band called ‘eraxity’ last week
+0.6 | 2026-10-17 10:27:09 | [5c9cd421-edd2-4c9f-a31d-5aaecd8ebff9] he wants to hear my voice
+0.6 | 2026-10-17 10:21:42 | [57d7d12c-38a3-44d3-9487-cb574dd5bb10] he said 'u ther'
+0.6 | 2026-10-17 10:19:56 | [brand-new-visitor-77] he fixed something
+0.6 | 2026-10-17 09:27:38 | [owner] he hates hackathons
+0.6 | 2026-10-17 09:20:34 | [owner] he hates me; he hates u; he likes sports
+0.6 | 2026-10-17 09:18:17 | [owner] he hates me; he hates u; he likes sports; he likes his voice; meditation; he’s into sports
+0.6 | 2026-10-17 09:17:16 | [owner] he hates me
+0.6 | 2026-10-17 09:02:32 | [owner] he hates u
+0.6 | 2026-10-17 08:59:19 | [owner] he likes sports
+0.6 | 2026-10-17 08:54:55 | [owner] he likes his voice
+0.6 | 2026-10-17 08:44:13 | [owner] meditation
+0.6 | 2026-10-17 08:34:29 | [owner] he’s into sports
