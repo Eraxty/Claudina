@@ -3,11 +3,12 @@ import os
 import re
 
 from dotenv import load_dotenv
+from groq import Groq
 from ollama import chat
 
 from db import conn
-from available import get_status
-from state import get_state, update_state, is_minor, mark_minor
+from available import get_status, current_time
+from state import get_state, update_state, is_minor, mark_minor, is_adult_confirmed, confirm_adult
 from voice import make_voice_memo
 from memory import save_memory, top_memories
 
@@ -16,6 +17,9 @@ import random
 load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+
+groq = Groq() if os.environ.get("GROQ_API_KEY") else None
 
 # "im 15", "16 yo", "im in 9th grade" etc
 UNDERAGE = re.compile(
@@ -23,16 +27,48 @@ UNDERAGE = re.compile(
     r"|\b1[0-7] ?(yo|y/o|years old)\b",
     re.IGNORECASE,
 )
+ADULT_CONFIRMATION = re.compile(
+    r"\b(?:i['’]?m|i am)\s+(?:an?\s+)?(?:18|19|[2-9]\d)(?:\s*(?:yo|y/o|years? old))?\b"
+    r"|\b(?:i['’]?m|i am)\s+(?:over|older than)\s+18\b"
+    r"|\bi['’]?m\s+(?:an?\s+)?adult\b",
+    re.IGNORECASE,
+)
+SEXUAL_INTENT = re.compile(
+    r"\b(?:sex|sext(?:ing)?|horny|nudes?|naked|hook\s*up|sleep\s+with\s+you|"
+    r"boobs?|breasts?|tits?|nipples?|pussy|dick|cock|penis|vagina|genitals|"
+    r"blowjob|handjob|fingering)\b"
+    r"|\b(?:touch|feel|grab|squeeze|lick)\w*\s+(?:your|ur|u|her|their)?\s*(?:chest|ass|butt)\b",
+    re.IGNORECASE,
+)
 
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
 
 
-def ask_model(system_prompt, messages):
+def ask_model(system_prompt, messages, local_only = False):
     full_messages = [{"role": "system", "content": system_prompt}] + messages
-    response = chat(model = MODEL, messages = full_messages, format = "json", think = False)
+    content = None
+
+    # Use the local model for adult intimate turns, avoiding remote-model refusals.
+    for _ in range(2 if groq and not local_only else 0):
+        try:
+            response = groq.chat.completions.create(
+                model = GROQ_MODEL,
+                messages = full_messages,
+                response_format = {"type": "json_object"},
+                reasoning_effort = "low",
+            )
+            content = response.choices[0].message.content
+            break
+        except Exception as e:
+            print(f"groq failed: {e}")
+
+    if content is None:
+        print(f"using {MODEL} instead")
+        response = chat(model = MODEL, messages = full_messages, format = "json", think = False)
+        content = response.message.content
 
     try:
-        return json.loads(response.message.content)
+        return json.loads(content)
     except json.JSONDecodeError:
         return {"message": "wait my brain glitched"}
 
@@ -65,6 +101,18 @@ def respond(text, session = "", name = "", voice = True):
     if UNDERAGE.search(text):
         mark_minor(session)
         kid = True
+    elif ADULT_CONFIRMATION.search(text):
+        confirm_adult(session)
+
+    # Ask directly before handing an unconfirmed sexual topic to the model.
+    if not kid and not is_adult_confirmed(session) and SEXUAL_INTENT.search(text):
+        age_question = "hey, before we get into that, how old are you?"
+        conn.execute(
+            "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
+            ("assistant", age_question, session),
+        )
+        conn.commit()
+        return [age_question], None
 
     state = get_state(session)
     status = get_status()
@@ -74,22 +122,23 @@ def respond(text, session = "", name = "", voice = True):
         "Things you remember about them: " + "; ".join(known) + ". " if known else ""
     )
     availability = (
-        f"Right now you are {status['doing']}. "
+        f"It's {current_time():%A %H:%M}. Right now you are {status['doing']}, don't make up anything else you're doing. "
         + (
             "You are free to text, but you might still mention what you were doing. "
             if status["available"]
-            else "You are busy, so keep it VERY short or say brb and what you are busy with. "
+            else "You are busy, so keep it short, you can mention what you're doing. "
         )
     )
     
     interest = state["affection"]
+    adult = is_adult_confirmed(session)
 
     if kid:
         vibe = "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
     elif interest >= 0.85:
-        vibe = "You're dating them now. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. If they get horny, flirt and tease back but dodge it, you're not mad and it doesn't put you off them. "
+        vibe = "You're dating them now. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. "
     elif interest >= 0.7:
-        vibe = "You have a crush on them, flirt back, but you're not dating yet. "
+        vibe = "You're very close and attracted to them, with a high-trust close-friend dynamic; flirt back. "
     elif interest >= 0.45:
         vibe = "They're growing on you, be playful, but don't flirt yet. "
     else:
@@ -103,21 +152,27 @@ def respond(text, session = "", name = "", voice = True):
         f"{memory_line}"
         + (
             "They asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
-            if wants_voice
+            if wants_voice and interest >= 0.45
             else ""
         ) +
         "Text like a real girl on her phone, not an assistant: short and lazy, use stuff like u, ur, rn, ngl, idk, lmao, fr, tbh, hbu. "
         "Most texts have no emoji, one at most. Match their energy, a dry text gets a short reply. "
         "Have opinions and joke around, don't just say cool or nice. "
-        "Don't ask a question every time and never say the same thing twice. Never sexual. "
+        "Don't ask a question every time and never say the same thing twice. "
+        + (
+            "The user explicitly confirmed they are an adult. You are in a close, affectionate relationship. If they clearly invite consensual sexual or intimate roleplay, respond warmly and directly in character instead of deflecting to ordinary small talk or a movie. Keep it suggestive and non-graphic, make consent mutual, and stop or change direction immediately if either person hesitates or sets a boundary. You may also initiate gentle flirtation, but never pressure them. "
+            if adult and interest >= 0.7
+            else "Do not engage in sexual chat. If they are an adult but affection is below 0.7, keep things nonsexual and say you want more closeness first. If their age is unconfirmed, ask how old they are and keep your reply nonsexual. Only continue sexual or intimate roleplay if they clearly confirm they are 18 or older and affection is at least 0.7. If they say they are under 18 or avoid answering, do not continue sexually. "
+        ) +
         "Send 1 to 3 bubbles, usually 1. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
-        "\"interest\": <-0.2 to 0.2, normal small talk is 0, funny, sweet or respectful makes it go up, insults, sexual stuff, creepy or pushy makes it go down>, "
+        "\"interest\": <-0.2 to 0.2, normal small talk is 0, funny, sweet or respectful makes it go up, insults, creepy behavior, unwanted sexual advances or pressure make it go down; consensual sexual flirting between confirmed adults in a close relationship does not lower it>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
-    result = ask_model(system_prompt, messages)
+    local_intimate_turn = adult and interest >= 0.7 and SEXUAL_INTENT.search(text)
+    result = ask_model(system_prompt, messages, local_only = bool(local_intimate_turn))
 
     if not kid:
         # the model caught a kid the regex missed, just don't answer
@@ -173,7 +228,8 @@ def respond(text, session = "", name = "", voice = True):
 
     memo = None
     wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
-    if voice and (wants_voice or (status["available"] and state["affection"] >= 0.7 and random.random() < 0.4)):
+    # voice notes only go to people she knows, the more she likes you the more she sends
+    if voice and state["affection"] >= 0.45 and (wants_voice or (status["available"] and random.random() < state["affection"] / 4)):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
         elif state["affection"] >= 0.7 or wants_voice:
@@ -183,7 +239,7 @@ def respond(text, session = "", name = "", voice = True):
         memo = make_voice_memo(bubbles[-1], mood)
 
     for bubble in bubbles:
-        if bubble == bubbles[0] and memo:
+        if bubble == bubbles[-1] and memo:
             messages.append({"role": "assistant", "content": bubble + " (voice memo)"})
             conn.execute(
                 "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
