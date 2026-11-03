@@ -3,11 +3,11 @@ import os
 import re
 
 from dotenv import load_dotenv
+from groq import Groq
 from ollama import chat
 
 from db import conn
-from available import get_status
-from state import get_state, update_state, is_minor, mark_minor
+from available import get_status, current_time
 from voice import make_voice_memo
 from memory import save_memory, top_memories
 
@@ -16,6 +16,9 @@ import random
 load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+
+groq = Groq() if os.environ.get("GROQ_API_KEY") else None
 
 # "im 15", "16 yo", "im in 9th grade" etc
 UNDERAGE = re.compile(
@@ -23,16 +26,37 @@ UNDERAGE = re.compile(
     r"|\b1[0-7] ?(yo|y/o|years old)\b",
     re.IGNORECASE,
 )
+OFF_LIMITS = re.compile(
+    re.IGNORECASE,
+)
 
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
 
 
-def ask_model(system_prompt, messages):
+def ask_model(system_prompt, messages, local_only = False):
     full_messages = [{"role": "system", "content": system_prompt}] + messages
-    response = chat(model = MODEL, messages = full_messages, format = "json", think = False)
+    content = None
+
+    for _ in range(2 if groq and not local_only else 0):
+        try:
+            response = groq.chat.completions.create(
+                model = GROQ_MODEL,
+                messages = full_messages,
+                response_format = {"type": "json_object"},
+                reasoning_effort = "low",
+            )
+            content = response.choices[0].message.content
+            break
+        except Exception as e:
+            print(f"groq failed: {e}")
+
+    if content is None:
+        print(f"using {MODEL} instead")
+        response = chat(model = MODEL, messages = full_messages, format = "json", think = False)
+        content = response.message.content
 
     try:
-        return json.loads(response.message.content)
+        return json.loads(content)
     except json.JSONDecodeError:
         return {"message": "wait my brain glitched"}
 
@@ -65,6 +89,16 @@ def respond(text, session = "", name = "", voice = True):
     if UNDERAGE.search(text):
         mark_minor(session)
         kid = True
+    elif AGE_CONFIRMATION.search(text):
+
+    if not kid and not is_verified(session) and OFF_LIMITS.search(text):
+        age_question = "hey, before we get into that, how old are you?"
+        conn.execute(
+            "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
+            ("assistant", age_question, session),
+        )
+        conn.commit()
+        return [age_question], None
 
     state = get_state(session)
     status = get_status()
@@ -74,11 +108,11 @@ def respond(text, session = "", name = "", voice = True):
         "Things you remember about them: " + "; ".join(known) + ". " if known else ""
     )
     availability = (
-        f"Right now you are {status['doing']}. "
+        f"It's {current_time():%A %H:%M}. Right now you are {status['doing']}, don't make up anything else you're doing. "
         + (
             "You are free to text, but you might still mention what you were doing. "
             if status["available"]
-            else "You are busy, so keep it VERY short or say brb and what you are busy with. "
+            else "You are busy, so keep it short, you can mention what you're doing. "
         )
     )
     
@@ -87,8 +121,9 @@ def respond(text, session = "", name = "", voice = True):
     if kid:
         vibe = "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
     elif interest >= 0.85:
+        vibe = "You're dating them now. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. "
     elif interest >= 0.7:
-        vibe = "You have a crush on them, flirt back, but you're not dating yet. "
+        vibe = "You're very close and attracted to them, with a high-trust close-friend dynamic; flirt back. "
     elif interest >= 0.45:
         vibe = "They're growing on you, be playful, but don't flirt yet. "
     else:
@@ -102,19 +137,22 @@ def respond(text, session = "", name = "", voice = True):
         f"{memory_line}"
         + (
             "They asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
-            if wants_voice
+            if wants_voice and interest >= 0.45
             else ""
         ) +
         "Text like a real girl on her phone, not an assistant: short and lazy, use stuff like u, ur, rn, ngl, idk, lmao, fr, tbh, hbu. "
         "Most texts have no emoji, one at most. Match their energy, a dry text gets a short reply. "
         "Have opinions and joke around, don't just say cool or nice. "
+        "Don't ask a question every time and never say the same thing twice. "
+        + (
+        ) +
         "Send 1 to 3 bubbles, usually 1. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
-    result = ask_model(system_prompt, messages)
+    result = ask_model(system_prompt, messages, local_only = bool(local_alt_turn))
 
     if not kid:
         # the model caught a kid the regex missed, just don't answer
@@ -170,7 +208,8 @@ def respond(text, session = "", name = "", voice = True):
 
     memo = None
     wants_voice = wants_voice or any(w in text.lower() for w in ("voice memo", "say it"))
-    if voice and (wants_voice or (status["available"] and state["affection"] >= 0.7 and random.random() < 0.4)):
+    # voice notes only go to people she knows, the more she likes you the more she sends
+    if voice and state["affection"] >= 0.45 and (wants_voice or (status["available"] and random.random() < state["affection"] / 4)):
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
         elif state["affection"] >= 0.7 or wants_voice:
@@ -180,7 +219,7 @@ def respond(text, session = "", name = "", voice = True):
         memo = make_voice_memo(bubbles[-1], mood)
 
     for bubble in bubbles:
-        if bubble == bubbles[0] and memo:
+        if bubble == bubbles[-1] and memo:
             messages.append({"role": "assistant", "content": bubble + " (voice memo)"})
             conn.execute(
                 "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",

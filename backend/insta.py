@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 
 from datetime import datetime
@@ -43,6 +44,7 @@ def run():
     cl = login()
     started = datetime.now()
     last_seen = {}
+    last_read = {}
 
     print(f"logged in as @{USERNAME}")
 
@@ -65,6 +67,16 @@ def run():
                 if not new:
                     continue
 
+                session = f"insta:{user.pk}"
+
+                # Mark ordinary inbox messages read as soon as we notice them,
+                # even if the simulated reply delay has not elapsed yet.
+                if not thread.pending:
+                    newest = max(m.timestamp for m in new)
+                    if newest > last_read.get(thread.id, started):
+                        cl.direct_send_seen(thread.id)
+                        last_read[thread.id] = newest
+
                 new.sort(key = lambda m: m.timestamp)
 
                 last_seen[thread.id] = new[-1].timestamp
@@ -73,7 +85,7 @@ def run():
 
                 print(f"{user.username}: {text}")
 
-                bubbles, memo = respond(text, session = f"insta:{user.pk}", name = user.username, voice = False)
+                bubbles, memo = respond(text, session = session, name = user.username)
 
                 if not bubbles:
                     continue
@@ -83,10 +95,21 @@ def run():
 
                 cl.direct_send_seen(thread.id)
 
-                for bubble in bubbles:
-                    time.sleep(1 + len(bubble) / 10)
+                # the voice note says the last bubble, so that one doesn't get typed
+                for bubble in bubbles[:-1] if memo else bubbles:
                     cl.direct_send(bubble, thread_ids = [thread.id])
                     print(f"claudina: {bubble}")
+
+                if memo:
+                    try:
+                        # instagram only takes voice notes as m4a
+                        m4a = memo.replace(".wav", ".m4a")
+                        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", memo, m4a], check = True)
+                        cl.direct_send_voice(m4a, thread_ids = [thread.id])
+                        print(f"claudina: [voice note] {bubbles[-1]}")
+                    except Exception as e:
+                        print(f"voice note didnt send, texting it instead: {e}")
+                        cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
         except LoginRequired:
             cl.relogin()
@@ -95,7 +118,7 @@ def run():
         except Exception as e:
             print(f"error: {e}")
 
-        time.sleep(30)
+        time.sleep(1)
 
 
 if __name__ == "__main__":

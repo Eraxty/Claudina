@@ -31,6 +31,12 @@ try:
 except sqlite3.OperationalError:
     pass
 
+try:
+    conn.execute("ALTER TABLE user_state ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
+
 
 def get_state(session = ""):
     row = conn.execute(
@@ -70,5 +76,15 @@ def is_minor(session = ""):
 
 def mark_minor(session = ""):
     get_state(session)
-    conn.execute("UPDATE user_state SET minor = 1 WHERE session = ?", (session,))
+    conn.execute("UPDATE user_state SET minor = 1, verified = 0 WHERE session = ?", (session,))
+    conn.commit()
+
+
+def is_verified(session = ""):
+    row = conn.execute("SELECT verified FROM user_state WHERE session = ?", (session,)).fetchone()
+    return bool(row and row[0])
+
+
+    get_state(session)
+    conn.execute("UPDATE user_state SET verified = 1 WHERE session = ? AND minor = 0", (session,))
     conn.commit()
