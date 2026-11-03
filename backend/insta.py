@@ -1,13 +1,15 @@
 import os
+import random
 import subprocess
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 from instagrapi import Client
 from instagrapi.exceptions import LoginRequired
 
+from available import get_status
 from main import respond
 
 load_dotenv()
@@ -42,13 +44,33 @@ def login():
 
 def run():
     cl = login()
-    started = datetime.now()
     last_seen = {}
     last_read = {}
+    next_open = 0
+    was_free = False
 
     print(f"logged in as @{USERNAME}")
 
     while True:
+        status = get_status()
+
+        # check msgs in morning if shes sleeping
+        if status["doing"] == "sleeping":
+            time.sleep(60)
+            continue
+
+        # checks phone when free
+        if status["available"] and not was_free:
+            next_open = 0
+
+        was_free = status["available"]
+
+        if time.time() < next_open:
+            time.sleep(5)
+            continue
+
+        next_open = time.time() + (random.randint(30, 300) if status["available"] else random.randint(900, 2700))
+
         try:
             threads = cl.direct_threads(amount = 20, thread_message_limit = 10) + cl.direct_pending_inbox(amount = 20)
 
@@ -57,7 +79,13 @@ def run():
                     continue
 
                 user = thread.users[0]
-                since = last_seen.get(thread.id, started)
+
+                # reply to whatever came after her last text, skip stuff older than 2 days
+                since = last_seen.get(thread.id, datetime.now() - timedelta(days = 2))
+
+                for m in thread.messages:
+                    if str(m.user_id) != str(user.pk):
+                        since = max(since, m.timestamp)
 
                 new = [
                     m for m in thread.messages
@@ -73,7 +101,7 @@ def run():
                 # even if the simulated reply delay has not elapsed yet.
                 if not thread.pending:
                     newest = max(m.timestamp for m in new)
-                    if newest > last_read.get(thread.id, started):
+                    if newest > last_read.get(thread.id, datetime.min):
                         cl.direct_send_seen(thread.id)
                         last_read[thread.id] = newest
 
@@ -97,6 +125,7 @@ def run():
 
                 # the voice note says the last bubble, so that one doesn't get typed
                 for bubble in bubbles[:-1] if memo else bubbles:
+                    time.sleep(1 + len(bubble) / 10)
                     cl.direct_send(bubble, thread_ids = [thread.id])
                     print(f"claudina: {bubble}")
 
@@ -105,6 +134,7 @@ def run():
                         # instagram only takes voice notes as m4a
                         m4a = memo.replace(".wav", ".m4a")
                         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", memo, m4a], check = True)
+                        time.sleep(2 + len(bubbles[-1]) / 15)
                         cl.direct_send_voice(m4a, thread_ids = [thread.id])
                         print(f"claudina: [voice note] {bubbles[-1]}")
                     except Exception as e:
@@ -117,8 +147,9 @@ def run():
 
         except Exception as e:
             print(f"error: {e}")
+            time.sleep(15)
 
-        time.sleep(1)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
