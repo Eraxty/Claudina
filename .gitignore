@@ -6,3 +6,7 @@ voice_memos/
 insta_session.json
 claudina-lora/
 claudina-model/
+backend/heretic-cache/
+backend/heretic-study/
+backend/heretic-qwen3-0.6b/
+*.gguf

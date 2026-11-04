@@ -1,11 +1,16 @@
+import logging
 import os
 import re
 import threading
+import warnings
 
 from datetime import datetime
 
 import numpy as np
 import soundfile as sf
+
+warnings.filterwarnings("ignore")
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
 
@@ -33,7 +38,7 @@ def load_voice_engine():
         if voice_engine is None:
             from kokoro import KPipeline
 
-            voice_engine = KPipeline(lang_code = "a")
+            voice_engine = KPipeline(lang_code = "a", repo_id = "hexgrad/Kokoro-82M")
 
     return voice_engine
 
