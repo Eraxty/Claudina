@@ -11,6 +11,7 @@ from instagrapi.exceptions import LoginRequired
 
 from available import get_status
 from main import respond
+from state import get_state, is_minor
 
 load_dotenv()
 
@@ -42,6 +43,34 @@ def login():
     return cl
 
 
+def misses(thread, session):
+    interest = get_state(session)["affection"]
+
+    if interest < 0.45 or is_minor(session) or thread.pending or not thread.messages:
+        return False
+
+    last = thread.messages[0]
+
+    for m in thread.messages:
+        if m.timestamp > last.timestamp:
+            last = m
+
+    if str(last.user_id) != str(thread.users[0].pk) and interest < 0.85:
+        return False
+
+    if datetime.now() - last.timestamp <= timedelta(hours = 6):
+        return False
+
+    return random.random() < interest / 100
+
+
+def affection(thread):
+    if not thread.users:
+        return 0
+
+    return get_state(f"insta:{thread.users[0].pk}")["affection"]
+
+
 def run():
     cl = login()
     last_seen = {}
@@ -69,10 +98,14 @@ def run():
             time.sleep(5)
             continue
 
-        next_open = time.time() + (random.randint(30, 300) if status["available"] else random.randint(900, 2700))
+        if status["available"]:
+            next_open = time.time() + random.randint(30, 300)
+        else:
+            next_open = time.time() + random.randint(900, 2700)
 
         try:
             threads = cl.direct_threads(amount = 20, thread_message_limit = 10) + cl.direct_pending_inbox(amount = 20)
+            threads.sort(key = affection, reverse = True)
 
             for thread in threads:
                 if thread.is_group or len(thread.users) != 1:
@@ -87,31 +120,32 @@ def run():
                     if str(m.user_id) != str(user.pk):
                         since = max(since, m.timestamp)
 
-                new = [
-                    m for m in thread.messages
-                    if str(m.user_id) == str(user.pk) and m.item_type == "text" and m.timestamp > since
-                ]
+                new = []
 
-                if not new:
-                    continue
+                for m in thread.messages:
+                    if str(m.user_id) == str(user.pk) and m.item_type == "text" and m.timestamp > since:
+                        new.append(m)
 
                 session = f"insta:{user.pk}"
 
-                # Mark ordinary inbox messages read as soon as we notice them,
-                # even if the simulated reply delay has not elapsed yet.
-                if not thread.pending:
-                    newest = max(m.timestamp for m in new)
-                    if newest > last_read.get(thread.id, datetime.min):
+                if new:
+                    new.sort(key = lambda m: m.timestamp)
+                    newest = new[-1].timestamp
+
+                    if not thread.pending and newest > last_read.get(thread.id, datetime.min):
                         cl.direct_send_seen(thread.id)
                         last_read[thread.id] = newest
 
-                new.sort(key = lambda m: m.timestamp)
+                    last_seen[thread.id] = newest
+                    text = "\n".join(m.text for m in new)
+                    print(f"{user.username}: {text}")
 
-                last_seen[thread.id] = new[-1].timestamp
+                elif status["available"] and misses(thread, session):
+                    text = None
+                    print(f"texting {user.username} first")
 
-                text = "\n".join(m.text for m in new)
-
-                print(f"{user.username}: {text}")
+                else:
+                    continue
 
                 bubbles, memo = respond(text, session = session, name = user.username)
 
@@ -124,7 +158,12 @@ def run():
                 cl.direct_send_seen(thread.id)
 
                 # the voice note says the last bubble, so that one doesn't get typed
-                for bubble in bubbles[:-1] if memo else bubbles:
+                typed = bubbles
+
+                if memo:
+                    typed = bubbles[:-1]
+
+                for bubble in typed:
                     time.sleep(1 + len(bubble) / 10)
                     cl.direct_send(bubble, thread_ids = [thread.id])
                     print(f"claudina: {bubble}")

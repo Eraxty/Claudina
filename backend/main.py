@@ -8,24 +8,41 @@ from groq import Groq
 from ollama import chat
 
 from available import current_time, get_status
+from config import (
+    AGE_CONFIRMATION,
+    ALT_PROMPT,
+    REFUSAL,
+    OFF_LIMITS,
+    UNDERAGE,
+)
+
 from db import conn
 from memory import save_memory, top_memories
-from state import get_state, is_minor, mark_minor, update_state
+
+from state import (
+    get_state,
+    is_verified,
+    is_minor,
+    mark_minor,
+    update_state,
+)
+
 from voice import make_voice_memo
 
 load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+
+ALT_MODEL = (
+    os.environ.get("CLAUDINA_ALT_MODEL")
+)
+
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
-groq = Groq() if os.environ.get("GROQ_API_KEY") else None
+groq = None
 
-# "im 15", "16 yo", "im in 9th grade" etc
-UNDERAGE = re.compile(
-    r"\b(i['’]?m|i am) (only )?(1[0-7]\b(?! ?(min|hour|hr))|in (\d+th grade|middle school|high ?school))"
-    r"|\b1[0-7] ?(yo|y/o|years old)\b",
-    re.IGNORECASE,
-)
+if os.environ.get("GROQ_API_KEY"):
+    groq = Groq()
 
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
 
@@ -44,7 +61,12 @@ def history(session):
         (session,),
     ).fetchall()
 
-    return [{"role": role, "content": content} for role, content in reversed(rows)]
+    messages = []
+
+    for role, content in reversed(rows):
+        messages.append({"role": role, "content": content})
+
+    return messages
 
 
 def hours_since_reply(session):
@@ -53,16 +75,29 @@ def hours_since_reply(session):
         (session,),
     ).fetchone()
 
-    return row[0] if row else 99
+    if row is None:
+        return 99
+
+    return row[0]
 
 
-def ask_model(prompt, messages):
-    messages = [{"role": "system", "content": prompt}] + messages
+def ask_model(prompt, messages, model_override = None, plain_history = False):
+    convo = [{"role": "system", "content": prompt}]
+
+    for m in messages:
+        if m["role"] == "user" or plain_history:
+            convo.append(m)
+        else:
+            convo.append({"role": "assistant", "content": json.dumps({"reply": [m["content"]]})})
+
+    messages = convo
     content = None
+    tries = 0
 
-    # groq runs a way bigger model for free, gemma on this laptop is the backup
-    # it sometimes sends back nothing so it gets a second try
-    for _ in range(2 if groq else 0):
+    if groq and model_override is None:
+        tries = 2
+
+    for _ in range(tries):
         try:
             response = groq.chat.completions.create(
                 model = GROQ_MODEL,
@@ -71,13 +106,42 @@ def ask_model(prompt, messages):
                 reasoning_effort = "low",
             )
             content = response.choices[0].message.content
+
+            if content and REFUSAL.search(content):
+                content = None
+                continue
+
             break
         except Exception as e:
             print(f"groq failed: {e}")
 
     if content is None:
-        print(f"using {MODEL} instead")
-        content = chat(model = MODEL, messages = messages, format = "json", think = False).message.content
+        local_model = model_override or MODEL
+
+        if model_override is None:
+            print(f"using {local_model} instead")
+
+        try:
+            content = chat(model = local_model, messages = messages, format = "json", think = False).message.content
+
+            if content and REFUSAL.search(content):
+                content = None
+        except Exception as e:
+            print(f"{local_model} failed: {e}")
+            content = None
+
+        if content is None:
+            if local_model == MODEL:
+                return {}
+
+            try:
+                content = chat(model = MODEL, messages = messages, format = "json", think = False).message.content
+            except Exception as e:
+                print(f"{MODEL} failed: {e}")
+                return {}
+
+            if content and REFUSAL.search(content):
+                return {}
 
     try:
         return json.loads(content)
@@ -85,86 +149,207 @@ def ask_model(prompt, messages):
         return {}
 
 
-def vibe(interest, kid):
     if kid:
         return "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
 
     if interest >= 0.85:
-        return (
-            "You're dating them. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. "
-        )
+        return "You're dating them. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. "
 
     if interest >= 0.7:
-        return "You have a crush on them, flirt back but play it a bit cool. "
+        return "You're very close and attracted to them, with a high trust close friend dynamic; flirt back. "
 
     if interest >= 0.45:
         return "They're growing on you, be playful, but don't flirt yet. "
 
-    return "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off or be dry. "
+    return "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off like lol ok or slow down, don't get mad. "
 
 
 def respond(text, session = "", name = "", voice = True):
-    lower = text.lower()
-    wants_voice = voice and any(w in lower for w in ("voice", "memo", "record", "speak", "say it"))
-    messages = history(session) + [{"role": "user", "content": text}]
+    first = text is None
+    lower = ""
+    wants_voice = False
+    messages = history(session)
 
-    save("user", text, session)
+    if text:
+        lower = text.lower()
+        messages.append({"role": "user", "content": text})
+    else:
+        messages.append({"role": "user", "content": "(they haven't texted, you're texting them first)"})
 
-    # kids get left on read for good
+    for w in ("voice", "memo", "record", "speak", "say it"):
+        if voice and w in lower:
+            wants_voice = True
+    messages = [
+        m for m in messages
+        if not (
+            m["role"] == "assistant"
+            and REFUSAL.search(m["content"] or "")
+        )
+    ]
+
+    if not first:
+        save("user", text, session)
+
     if is_minor(session):
         return [], None
 
-    # people she's mad at get ignored for a few hours, then she cools off
     if get_state(session)["affection"] <= 0.05:
         if hours_since_reply(session) < 6:
             return [], None
 
         update_state(affection_delta = 0.15, session = session)
 
-    kid = bool(UNDERAGE.search(text))
+    kid = bool(UNDERAGE.search(lower))
 
     if kid:
         mark_minor(session)
+    elif AGE_CONFIRMATION.search(lower):
+
+
+        age_question = "hey, before we get into that, how old are you?"
+        save("assistant", age_question, session)
+        return [age_question], None
 
     state = get_state(session)
     interest = state["affection"]
     status = get_status()
     known = top_memories(session = session)
+    recent_user = [m for m in messages if m["role"] == "user"][-8:]
+    crossed_line = any(
+        m["role"] == "user" and OFF_LIMITS.search(m["content"] or "")
+        for m in messages
+    )
+        bool(OFF_LIMITS.search(lower))
+        or any(OFF_LIMITS.search(m["content"] or "") for m in recent_user)
+    )
+    doing = status["doing"]
+
+    if doing == "sleeping":
+        doing = "half asleep in bed, their text just woke you up"
 
     prompt = (
         "You are Claudina, 20, second year psych student in New York, you live in a dorm with your roommate Maya. "
         "You listen to Frank Ocean, SZA, Daniel Caesar and Steve Lacy, you're rewatching Gilmore Girls, you drink way too much iced coffee, love late night drives and roasting people you like. "
-        "Stick to these facts about yourself and bring up one at a time, don't invent big new ones like family, exes or trips. "
+        "Stick to these facts about yourself but only bring them up when they fit, don't shove coffee or music into every text, and don't invent big new ones like family, exes or trips. "
         f"You're texting {name or 'someone'} on Instagram. "
-        + vibe(interest, kid)
-        + f"It's {current_time():%A %H:%M}. Right now you are {status['doing']}, don't make up anything else you're doing. "
+        + f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
     )
 
     if status["available"]:
-        prompt += "You are free to text, but you might still mention what you were doing. "
+        prompt += "You are free to text. "
     else:
-        prompt += "You are busy, so keep it short, you can mention what you're doing. "
+        prompt += "You are busy, so keep it short. "
 
     if known:
         prompt += "Things you remember about them: " + "; ".join(known) + ". "
+
+    if first:
+        prompt += "You haven't talked in a while and you're texting them first. Keep it tiny like yoo, wsp, hru, wyd, or bring up something you remember about them or what you're doing. "
 
     if wants_voice and interest >= 0.45:
         prompt += "They asked for a voice memo: your reply text IS the memo, speak its content directly. Never mention sending or recording it. "
 
     prompt += (
-        "Text like a real girl on her phone, not an assistant: short and lazy, use stuff like u, ur, rn, ngl, idk, lmao, fr, tbh, hbu. "
-        "Most texts have no emoji, one at most. Match their energy, a dry text gets a short reply. "
-        "Have opinions and joke around, don't just say cool or nice. "
-        "Send 1 to 3 bubbles, usually 1. "
+        "Text like a normal person on her phone, not an assistant or a character: short and lazy, use stuff like u, ur, rn, ngl, idk, lmao, fr, tbh, hbu, wbu. "
+        "Just answer what they said the way a normal person would, don't add extra stuff nobody asked for and don't bring up what you're doing or your interests unless they ask. "
+        "Like: yo -> yo wsp, wsp -> nm wbu, hru -> im good wbu, what u doing -> nothing rn wbu, bruh -> lmaoo what. "
+        "Short isn't rude though, if they ask how you are ask them back, and never reply with just k or ok. "
+        "Most texts have no emoji, one at most. Never say the same thing twice. "
+    )
+
+    else:
+
+    prompt += (
+        "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
-    result = ask_model(prompt, messages)
+    if alt_turn:
+        def norm(s):
+            return re.sub(r"[^a-z0-9]+", "", str(s).lower())
 
-    if not kid:
-        # the model caught a kid the regex missed, just don't answer
+        def words(s):
+            return set(re.findall(r"[a-z0-9]+", str(s).lower()))
+
+        def similar(a, b, cutoff = 0.75):
+            wa, wb = words(a), words(b)
+
+            if not wa or not wb:
+                return False
+
+            return len(wa & wb) / len(wa | wb) >= cutoff
+
+        recent_assistant = [
+            m["content"] for m in messages
+            if m["role"] == "assistant" and str(m["content"]).strip()
+        ][-10:]
+        user_norms = {norm(m["content"]) for m in messages if m["role"] == "user"}
+        assistant_msgs = [(i, m) for i, m in enumerate(messages) if m["role"] == "assistant"]
+        counts = {}
+
+        for _, m in assistant_msgs:
+            k = norm(m["content"])
+            counts[k] = counts.get(k, 0) + 1
+
+        drop = set()
+
+        for x, (i, m) in enumerate(assistant_msgs):
+            k = norm(m["content"])
+
+            if not k or counts[k] > 1 or k in user_norms:
+                drop.add(i)
+
+            for j, m2 in assistant_msgs[x + 1:]:
+                if similar(m["content"], m2["content"]):
+                    drop.add(i)
+                    drop.add(j)
+
+        messages = [m for i, m in enumerate(messages) if i not in drop]
+
+        prompt = ALT_PROMPT
+
+        seen = {norm(m["content"]) for m in messages if m["role"] == "assistant" and str(m["content"]).strip()}
+        result = {}
+        fresh = []
+
+        for _ in range(3):
+            result = ask_model(prompt, messages, ALT_MODEL, plain_history = True)
+            reply = result.get("reply")
+
+            if isinstance(reply, str):
+                parts = [reply]
+            elif isinstance(reply, list):
+                parts = [str(b) for b in reply]
+            else:
+                parts = []
+
+            fresh = [
+                b for b in parts
+                if b.strip()
+                and norm(b) not in seen
+                and not any(similar(b, old) for old in recent_assistant)
+            ]
+
+            if fresh:
+                result["reply"] = fresh
+                break
+
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i]["role"] == "assistant":
+                    messages.pop(i)
+                    break
+
+        if not fresh:
+            result = {}
+    else:
+        if crossed_line:
+            result = ask_model(prompt, messages, ALT_MODEL, plain_history = True)
+        else:
+            result = ask_model(prompt, messages)
+
+    if not kid and not first:
         if str(result.get("minor")).lower() == "true":
             mark_minor(session)
             return [], None
@@ -174,27 +359,41 @@ def respond(text, session = "", name = "", voice = True):
         except (TypeError, ValueError):
             change = 0
 
-        # she warms up slow but goes off people fast, unless she's dating them
-        lowest = -0.05 if interest >= 0.85 else -0.2
+        lowest = -0.2
+
+        if interest >= 0.85:
+            lowest = -0.05
+
+        if alt_turn:
+            change = max(0, change)
+
         state = update_state(affection_delta = max(lowest, min(0.03, change)), session = session)
 
         if state["affection"] <= 0.05:
             return [], None
 
-    reply = result.get("reply") or []
+    reply = result.get("reply")
 
-    if not isinstance(reply, list):
+    if not reply:
+        reply = []
+    elif not isinstance(reply, list):
         reply = [reply]
 
-    reply = [str(b).strip() for b in reply if str(b).strip()][:3]
+    cleaned = []
+
+    for b in reply:
+        b = str(b).strip()
+
+        if b:
+            cleaned.append(b)
+
+    reply = cleaned[:3]
     bubbles = []
 
-    # she spams emojis, let one through now and then
     emoji_ok = random.random() < 0.4
 
     for b in reply:
-        # nobody texts with capitals, apostrophes, commas or full stops
-        b = b.lower().replace("’", "").replace("'", "").replace(",", "").rstrip(".")
+        b = b.lower().replace("’", "").replace("'", "").replace(",", "")
 
         for e in EMOJI.findall(b):
             if emoji_ok:
@@ -202,10 +401,15 @@ def respond(text, session = "", name = "", voice = True):
             else:
                 b = b.replace(e, "", 1).strip()
 
-        if b:
-            bubbles.append(b)
+        if not wants_voice:
+            b = b.replace(". ", "\n").replace("? ", "?\n").replace("! ", "!\n")
 
-    # a reply that's just an emoji is fine though
+        for part in b.split("\n"):
+            part = part.rstrip(".").strip()
+
+            if part:
+                bubbles.append(part)
+
     if not bubbles and reply:
         bubbles = reply[:1]
 
@@ -214,14 +418,21 @@ def respond(text, session = "", name = "", voice = True):
 
     fact = str(result.get("memory", ""))
 
-    # the model makes stuff up, only keep it if it's about something they actually said
-    if any(w in lower for w in re.findall(r"[a-z]{5,}", fact.lower())):
-        save_memory(fact, session = session)
+    if alt_turn:
+        fact = ""
+
+    for w in re.findall(r"[a-z]{5,}", fact.lower()):
+        if w in lower:
+            save_memory(fact, session = session)
+            break
 
     memo = None
+    send_memo = wants_voice
 
-    # voice notes only go to people she knows, the more she likes you the more she sends
-    if voice and state["affection"] >= 0.45 and (wants_voice or (status["available"] and random.random() < state["affection"] / 4)):
+    if status["available"] and random.random() < state["affection"] / 4:
+        send_memo = True
+
+    if voice and state["affection"] >= 0.45 and send_memo:
         if state["annoyance"] >= 0.4:
             mood = "annoyed"
         elif state["affection"] >= 0.7 or wants_voice:
@@ -234,7 +445,12 @@ def respond(text, session = "", name = "", voice = True):
     for b in bubbles[:-1]:
         save("assistant", b, session)
 
-    save("assistant", bubbles[-1] + (" (voice memo)" if memo else ""), session)
+    last = bubbles[-1]
+
+    if memo:
+        last += " (voice memo)"
+
+    save("assistant", last, session)
 
     return bubbles, memo
 
@@ -250,8 +466,15 @@ if __name__ == "__main__":
 
         bubbles, memo = respond(text, session = "cli")
 
-        # the voice memo says the last bubble
-        for bubble in bubbles[:-1] if memo else bubbles:
+        if not bubbles:
+            print("(left on seen)")
+
+        typed = bubbles
+
+        if memo:
+            typed = bubbles[:-1]
+
+        for bubble in typed:
             print(f"claudina: {bubble}")
             time.sleep(0.7)
 
