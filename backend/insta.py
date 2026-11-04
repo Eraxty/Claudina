@@ -64,6 +64,10 @@ def misses(thread, session):
     return random.random() < interest / 100
 
 
+def sent_at(message):
+    return message.timestamp
+
+
 def affection(thread):
     if not thread.users:
         return 0
@@ -129,7 +133,7 @@ def run():
                 session = f"insta:{user.pk}"
 
                 if new:
-                    new.sort(key = lambda m: m.timestamp)
+                    new.sort(key = sent_at)
                     newest = new[-1].timestamp
 
                     if not thread.pending and newest > last_read.get(thread.id, datetime.min):
@@ -137,7 +141,12 @@ def run():
                         last_read[thread.id] = newest
 
                     last_seen[thread.id] = newest
-                    text = "\n".join(m.text for m in new)
+                    lines = []
+
+                    for m in new:
+                        lines.append(m.text)
+
+                    text = "\n".join(lines)
                     print(f"{user.username}: {text}")
 
                 elif status["available"] and misses(thread, session):

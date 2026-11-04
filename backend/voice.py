@@ -45,9 +45,7 @@ def load_voice_engine():
 
 def clean_for_speaking(text):
     text = re.sub(r"\[[^\]]*\]", " ", text)
-    text = re.sub(
-        "[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+", " ", text
-    )
+    text = re.sub("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+", " ", text)
 
     return re.sub(r"\s+", " ", text).strip()
 

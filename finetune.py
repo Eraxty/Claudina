@@ -22,9 +22,21 @@ def clean(text):
 
 
 def chat(lines):
-    lines = [clean(l) for l in lines if l and l.strip()]
+    messages = []
+    role = "user"
 
-    return [{"role": "user" if i % 2 == 0 else "assistant", "content": l} for i, l in enumerate(lines)]
+    for line in lines:
+        if not line or not line.strip():
+            continue
+
+        messages.append({"role": role, "content": clean(line)})
+
+        if role == "user":
+            role = "assistant"
+        else:
+            role = "user"
+
+    return messages
 
 
 def discord(n):
@@ -32,7 +44,12 @@ def discord(n):
 
     for row in rows:
         turns = re.findall(r"<\|im_start\|>(user|assistant)\n(.*?)<\|im_end\|>", row["text"], re.S)
-        yield [{"role": role, "content": text.strip()} for role, text in turns]
+        messages = []
+
+        for role, text in turns:
+            messages.append({"role": role, "content": text.strip()})
+
+        yield messages
 
 
 def casual(n):
@@ -78,7 +95,12 @@ def empathetic(n):
     rows = load_dataset("Estwld/empathetic_dialogues_llm", split = "train").shuffle(seed = 0).select(range(n))
 
     for row in rows:
-        yield [{"role": m["role"], "content": clean(m["content"])} for m in row["conversations"]]
+        messages = []
+
+        for m in row["conversations"]:
+            messages.append({"role": m["role"], "content": clean(m["content"])})
+
+        yield messages
 
 
 # discord has real human talks soo more priority
@@ -99,7 +121,10 @@ def build():
         before = len(chats)
 
         for messages in source(n):
-            text = " ".join(m["content"] for m in messages)
+            text = ""
+
+            for m in messages:
+                text += m["content"] + " "
 
             if len(messages) >= 2 and "http" not in text and not NSFW.search(text):
                 chats.append({"messages": messages})

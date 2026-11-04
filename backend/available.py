@@ -55,7 +55,10 @@ def current_time():
 
 def get_status(now = None):
     now = now or current_time()
-    schedule = WEEKEND if now.weekday() >= 5 else WEEKDAY
+    schedule = WEEKDAY
+
+    if now.weekday() >= 5:
+        schedule = WEEKEND
 
     roll = random.Random(now.strftime("%Y-%m-%d %H"))
 

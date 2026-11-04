@@ -33,7 +33,12 @@ def top_memories(limit = 10, session = ""):
         (session, limit),
     ).fetchall()
 
-    return [row[0] for row in rows]
+    memories = []
+
+    for row in rows:
+        memories.append(row[0])
+
+    return memories
 
 
 def _dump_txt():
