@@ -47,6 +47,29 @@ if os.environ.get("GROQ_API_KEY"):
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
 
 
+def normalize_text(value):
+    value = str(value).lower()
+    return re.sub(r"[^a-z0-9]+", "", value)
+
+
+def extract_words(value):
+    value = str(value).lower()
+    return set(re.findall(r"[a-z0-9]+", value))
+
+
+def looks_similar(first, second, cutoff = 0.75):
+    first_words = extract_words(first)
+    second_words = extract_words(second)
+
+    if not first_words or not second_words:
+        return False
+
+    shared = first_words & second_words
+    combined = first_words | second_words
+
+    return len(shared) / len(combined) >= cutoff
+
+
 def save(role, content, session):
     conn.execute(
         "INSERT INTO messages (role, content, created_at, session) VALUES (?, ?, datetime('now'), ?)",
@@ -88,7 +111,8 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
         if m["role"] == "user" or plain_history:
             convo.append(m)
         else:
-            convo.append({"role": "assistant", "content": json.dumps({"reply": [m["content"]]})})
+            wrapped = {"reply": [m["content"]]}
+            convo.append({"role": "assistant", "content": json.dumps(wrapped)})
 
     messages = convo
     content = None
@@ -122,7 +146,13 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
             print(f"using {local_model} instead")
 
         try:
-            content = chat(model = local_model, messages = messages, format = "json", think = False).message.content
+            response = chat(
+                model = local_model,
+                messages = messages,
+                format = "json",
+                think = False,
+            )
+            content = response.message.content
 
             if content and REFUSAL.search(content):
                 content = None
@@ -135,7 +165,13 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
                 return {}
 
             try:
-                content = chat(model = MODEL, messages = messages, format = "json", think = False).message.content
+                response = chat(
+                    model = MODEL,
+                    messages = messages,
+                    format = "json",
+                    think = False,
+                )
+                content = response.message.content
             except Exception as e:
                 print(f"{MODEL} failed: {e}")
                 return {}
@@ -179,13 +215,16 @@ def respond(text, session = "", name = "", voice = True):
     for w in ("voice", "memo", "record", "speak", "say it"):
         if voice and w in lower:
             wants_voice = True
-    messages = [
-        m for m in messages
-        if not (
-            m["role"] == "assistant"
-            and REFUSAL.search(m["content"] or "")
-        )
-    ]
+
+    filtered_messages = []
+    
+    for message in messages:
+    
+        if message["role"] == "assistant" and REFUSAL.search(message["content"] or ""):
+            continue
+        filtered_messages.append(message)
+    
+    messages = filtered_messages
 
     if not first:
         save("user", text, session)
@@ -214,14 +253,30 @@ def respond(text, session = "", name = "", voice = True):
     interest = state["affection"]
     status = get_status()
     known = top_memories(session = session)
-    recent_user = [m for m in messages if m["role"] == "user"][-8:]
-    crossed_line = any(
-        m["role"] == "user" and OFF_LIMITS.search(m["content"] or "")
-        for m in messages
-    )
-        bool(OFF_LIMITS.search(lower))
-        or any(OFF_LIMITS.search(m["content"] or "") for m in recent_user)
-    )
+
+    user_messages = []
+
+    for message in messages:
+        if message["role"] == "user":
+            user_messages.append(message)
+
+    crossed_line = False
+    
+    for message in user_messages:
+        if OFF_LIMITS.search(message["content"] or ""):
+            crossed_line = True
+            break
+
+    previous_user = None
+    
+    if len(user_messages) >= 2:
+        previous_user = user_messages[-2]
+
+    sticky_line = False
+    
+    if previous_user and OFF_LIMITS.search(previous_user["content"] or ""):
+        sticky_line = True
+
     doing = status["doing"]
 
     if doing == "sleeping":
@@ -232,8 +287,9 @@ def respond(text, session = "", name = "", voice = True):
         "You listen to Frank Ocean, SZA, Daniel Caesar and Steve Lacy, you're rewatching Gilmore Girls, you drink way too much iced coffee, love late night drives and roasting people you like. "
         "Stick to these facts about yourself but only bring them up when they fit, don't shove coffee or music into every text, and don't invent big new ones like family, exes or trips. "
         f"You're texting {name or 'someone'} on Instagram. "
-        + f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
     )
+
+    prompt += f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
 
     if status["available"]:
         prompt += "You are free to text. "
@@ -267,42 +323,50 @@ def respond(text, session = "", name = "", voice = True):
     )
 
     if alt_turn:
-        def norm(s):
-            return re.sub(r"[^a-z0-9]+", "", str(s).lower())
+        recent_assistant = []
+    
+        for m in messages:
+            if m["role"] != "assistant":
+                continue
 
-        def words(s):
-            return set(re.findall(r"[a-z0-9]+", str(s).lower()))
+            content = str(m["content"]).strip()
 
-        def similar(a, b, cutoff = 0.75):
-            wa, wb = words(a), words(b)
+            if content:
+                recent_assistant.append(content)
 
-            if not wa or not wb:
-                return False
+        recent_assistant = recent_assistant[-10:]
 
-            return len(wa & wb) / len(wa | wb) >= cutoff
+        user_norms = set()
+    
+        for m in messages:
+    
+            if m["role"] == "user":
+                user_norms.add(normalize_text(m["content"]))
 
-        recent_assistant = [
-            m["content"] for m in messages
-            if m["role"] == "assistant" and str(m["content"]).strip()
-        ][-10:]
-        user_norms = {norm(m["content"]) for m in messages if m["role"] == "user"}
-        assistant_msgs = [(i, m) for i, m in enumerate(messages) if m["role"] == "assistant"]
+        assistant_msgs = []
+    
+        for i, m in enumerate(messages):
+    
+            if m["role"] == "assistant":
+                assistant_msgs.append((i, m))
+
         counts = {}
-
+    
         for _, m in assistant_msgs:
-            k = norm(m["content"])
+            k = normalize_text(m["content"])
             counts[k] = counts.get(k, 0) + 1
 
         drop = set()
 
         for x, (i, m) in enumerate(assistant_msgs):
-            k = norm(m["content"])
+            k = normalize_text(m["content"])
 
             if not k or counts[k] > 1 or k in user_norms:
                 drop.add(i)
 
             for j, m2 in assistant_msgs[x + 1:]:
-                if similar(m["content"], m2["content"]):
+    
+                if looks_similar(m["content"], m2["content"]):
                     drop.add(i)
                     drop.add(j)
 
@@ -310,7 +374,17 @@ def respond(text, session = "", name = "", voice = True):
 
         prompt = ALT_PROMPT
 
-        seen = {norm(m["content"]) for m in messages if m["role"] == "assistant" and str(m["content"]).strip()}
+        seen = set()
+        for m in messages:
+    
+            if m["role"] != "assistant":
+                continue
+
+            content = str(m["content"]).strip()
+
+            if content:
+                seen.add(normalize_text(content))
+
         result = {}
         fresh = []
 
@@ -325,12 +399,29 @@ def respond(text, session = "", name = "", voice = True):
             else:
                 parts = []
 
-            fresh = [
-                b for b in parts
-                if b.strip()
-                and norm(b) not in seen
-                and not any(similar(b, old) for old in recent_assistant)
-            ]
+            fresh = []
+
+            for b in parts:
+                b = b.strip()
+
+                if not b:
+                    continue
+
+                if normalize_text(b) in seen:
+                    continue
+
+                already_used = False
+    
+                for previous_reply in recent_assistant:
+    
+                    if looks_similar(b, previous_reply):
+                        already_used = True
+                        break
+
+                if already_used:
+                    continue
+
+                fresh.append(b)
 
             if fresh:
                 result["reply"] = fresh
@@ -367,7 +458,13 @@ def respond(text, session = "", name = "", voice = True):
         if alt_turn:
             change = max(0, change)
 
-        state = update_state(affection_delta = max(lowest, min(0.03, change)), session = session)
+        if change > 0.03:
+            change = 0.03
+
+        if change < lowest:
+            change = lowest
+
+        state = update_state(affection_delta = change, session = session)
 
         if state["affection"] <= 0.05:
             return [], None
@@ -380,7 +477,6 @@ def respond(text, session = "", name = "", voice = True):
         reply = [reply]
 
     cleaned = []
-
     for b in reply:
         b = str(b).strip()
 
