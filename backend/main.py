@@ -185,6 +185,114 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
         return {}
 
 
+def fresh_reply(prompt, messages, model):
+    recent_assistant = []
+
+    for m in messages:
+        if m["role"] != "assistant":
+            continue
+
+        content = str(m["content"]).strip()
+
+        if content:
+            recent_assistant.append(content)
+
+    recent_assistant = recent_assistant[-10:]
+
+    user_norms = set()
+
+    for m in messages:
+
+        if m["role"] == "user":
+            user_norms.add(normalize_text(m["content"]))
+
+    assistant_msgs = []
+
+    for i, m in enumerate(messages):
+
+        if m["role"] == "assistant":
+            assistant_msgs.append((i, m))
+
+    counts = {}
+
+    for _, m in assistant_msgs:
+        k = normalize_text(m["content"])
+        counts[k] = counts.get(k, 0) + 1
+
+    drop = set()
+
+    for x, (i, m) in enumerate(assistant_msgs):
+        k = normalize_text(m["content"])
+
+        if not k or counts[k] > 1 or k in user_norms:
+            drop.add(i)
+
+        for j, m2 in assistant_msgs[x + 1:]:
+
+            if looks_similar(m["content"], m2["content"]):
+                drop.add(i)
+                drop.add(j)
+
+    messages = [m for i, m in enumerate(messages) if i not in drop]
+
+    seen = set()
+    for m in messages:
+
+        if m["role"] != "assistant":
+            continue
+
+        content = str(m["content"]).strip()
+
+        if content:
+            seen.add(normalize_text(content))
+
+    for _ in range(3):
+        result = ask_model(prompt, messages, model, plain_history = True)
+        reply = result.get("reply")
+
+        if isinstance(reply, str):
+            parts = [reply]
+        elif isinstance(reply, list):
+            parts = [str(b) for b in reply]
+        else:
+            parts = []
+
+        fresh = []
+
+        for b in parts:
+            b = b.strip()
+
+            if not b:
+                continue
+
+            if normalize_text(b) in seen:
+                continue
+
+            already_used = False
+
+            for previous_reply in recent_assistant:
+
+                if looks_similar(b, previous_reply):
+                    already_used = True
+                    break
+
+            if already_used:
+                continue
+
+            fresh.append(b)
+
+        if fresh:
+            result["reply"] = fresh
+            return result
+
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i]["role"] == "assistant":
+                messages.pop(i)
+                break
+
+    return {}
+
+
     if kid:
         return "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
 
@@ -323,122 +431,11 @@ def respond(text, session = "", name = "", voice = True):
     )
 
     if alt_turn:
-        recent_assistant = []
-    
-        for m in messages:
-            if m["role"] != "assistant":
-                continue
-
-            content = str(m["content"]).strip()
-
-            if content:
-                recent_assistant.append(content)
-
-        recent_assistant = recent_assistant[-10:]
-
-        user_norms = set()
-    
-        for m in messages:
-    
-            if m["role"] == "user":
-                user_norms.add(normalize_text(m["content"]))
-
-        assistant_msgs = []
-    
-        for i, m in enumerate(messages):
-    
-            if m["role"] == "assistant":
-                assistant_msgs.append((i, m))
-
-        counts = {}
-    
-        for _, m in assistant_msgs:
-            k = normalize_text(m["content"])
-            counts[k] = counts.get(k, 0) + 1
-
-        drop = set()
-
-        for x, (i, m) in enumerate(assistant_msgs):
-            k = normalize_text(m["content"])
-
-            if not k or counts[k] > 1 or k in user_norms:
-                drop.add(i)
-
-            for j, m2 in assistant_msgs[x + 1:]:
-    
-                if looks_similar(m["content"], m2["content"]):
-                    drop.add(i)
-                    drop.add(j)
-
-        messages = [m for i, m in enumerate(messages) if i not in drop]
-
-        prompt = ALT_PROMPT
-
-        seen = set()
-        for m in messages:
-    
-            if m["role"] != "assistant":
-                continue
-
-            content = str(m["content"]).strip()
-
-            if content:
-                seen.add(normalize_text(content))
-
-        result = {}
-        fresh = []
-
-        for _ in range(3):
-            result = ask_model(prompt, messages, ALT_MODEL, plain_history = True)
-            reply = result.get("reply")
-
-            if isinstance(reply, str):
-                parts = [reply]
-            elif isinstance(reply, list):
-                parts = [str(b) for b in reply]
-            else:
-                parts = []
-
-            fresh = []
-
-            for b in parts:
-                b = b.strip()
-
-                if not b:
-                    continue
-
-                if normalize_text(b) in seen:
-                    continue
-
-                already_used = False
-    
-                for previous_reply in recent_assistant:
-    
-                    if looks_similar(b, previous_reply):
-                        already_used = True
-                        break
-
-                if already_used:
-                    continue
-
-                fresh.append(b)
-
-            if fresh:
-                result["reply"] = fresh
-                break
-
-            for i in range(len(messages) - 1, -1, -1):
-                if messages[i]["role"] == "assistant":
-                    messages.pop(i)
-                    break
-
-        if not fresh:
-            result = {}
+        result = fresh_reply(ALT_PROMPT, messages, ALT_MODEL)
+    elif crossed_line:
+        result = fresh_reply(prompt, messages, ALT_MODEL)
     else:
-        if crossed_line:
-            result = ask_model(prompt, messages, ALT_MODEL, plain_history = True)
-        else:
-            result = ask_model(prompt, messages)
+        result = ask_model(prompt, messages)
 
     if not kid and not first:
         if str(result.get("minor")).lower() == "true":
