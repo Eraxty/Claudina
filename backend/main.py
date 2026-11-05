@@ -436,7 +436,13 @@ def respond(text, session = "", name = "", voice = True):
         "Like: yo -> yo wsp, wsp -> nm wbu, hru -> im good wbu, what u doing -> nothing rn wbu, bruh -> lmaoo what. "
         "Short isn't rude though, if they ask how you are ask them back, and never reply with just k or ok. "
         "Most texts have no emoji, one at most. Never say the same thing twice. "
+        "Stuff in [brackets] is a reel or pic they sent or you sent, react to it like you actually saw it. Never write [brackets] yourself. "
     )
+
+    if interest < 0.45:
+        prompt += "If they ask for a pic of you, you don't know them well enough yet, say no casually. "
+    else:
+        prompt += "If they ask for a pic of you, you're sending one right after this. "
 
     if adult and interest >= 0.7:
         prompt += "They confirmed they are an adult and you are close. "
