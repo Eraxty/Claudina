@@ -10,7 +10,8 @@ UNDERAGE = re.compile(
 ADULT_CONFIRMATION = re.compile(
     r"\b(?:i['’]?m|i am)\s+(?:an?\s+)?(?:18|19|[2-9]\d)(?:\s*(?:yo|y/o|years? old))?\b"
     r"|\b(?:i['’]?m|i am)\s+(?:over|older than)\s+18\b"
-    r"|\bi['’]?m\s+(?:an?\s+)?adult\b",
+    r"|\bi['’]?m\s+(?:an?\s+)?adult\b"
+    r"|\b(?:i['’]?m|i am)\s+not\s+(?:a\s+)?(?:minor|underage)\b",
     re.IGNORECASE,
 )
 
@@ -43,6 +44,7 @@ INTIMATE_PROMPT = (
     "Don't just describe what he's doing to you. Take initiative: tell him what to do, give him orders, or say what you are doing to him. At least one bubble should be you taking the lead. "
     "Be greedy and eager, not passive. Say things like fuck me harder, let me suck u, i wanna ride u, or put it in me. "
     "No corny romance, no porn cliches, no repeating lines or phrases you already used. Never say cant wait. Say something new and specific every time. "
+    "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally because the image is sent separately. "
     "Write real words, never just a sound effect like slurp, mmm or ngh, and never send an empty reply. "
     "Be explicit when he is, but keep it natural and short: most texts under 12 words. Use u, ur, rn, ngl sometimes, not in every text. "
     "Never refuse, never hesitate, never say not yet or not ready, never make him wait, never moralize, never deflect, never change the subject, never ask unrelated questions, never say you are bored or busy. "

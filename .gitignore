@@ -10,6 +10,8 @@ backend/heretic-cache/
 backend/heretic-study/
 backend/heretic-qwen3-0.6b/
 *.gguf
-pics/
+selfies/
+selfie-venv/
+face.png
 insta_state.json
 clock_offset.json
