@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import subprocess
@@ -19,6 +20,7 @@ USERNAME = os.environ.get("INSTA_USERNAME", "")
 PASSWORD = os.environ.get("INSTA_PASSWORD", "")
 
 SESSION_FILE = os.path.join(os.path.dirname(__file__), "insta_session.json")
+STATE_FILE = os.path.join(os.path.dirname(__file__), "insta_state.json")
 
 
 class InstaClient(Client):
@@ -41,6 +43,34 @@ def login():
     cl.dump_settings(SESSION_FILE)
 
     return cl
+
+
+def load_seen():
+    try:
+        with open(STATE_FILE) as f:
+            saved = json.load(f).get("last_seen")
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+    if not isinstance(saved, dict):
+        return {}
+
+    seen = {}
+
+    for thread_id, stamp in saved.items():
+        seen[thread_id] = datetime.fromisoformat(stamp)
+
+    return seen
+
+
+def save_seen(last_seen):
+    saved = {}
+
+    for thread_id, stamp in last_seen.items():
+        saved[thread_id] = stamp.isoformat()
+
+    with open(STATE_FILE, "w") as f:
+        json.dump({"last_seen": saved}, f)
 
 
 def misses(thread, session):
@@ -77,7 +107,7 @@ def affection(thread):
 
 def run():
     cl = login()
-    last_seen = {}
+    last_seen = load_seen()
     last_read = {}
     next_open = 0
     was_free = False
@@ -141,6 +171,7 @@ def run():
                         last_read[thread.id] = newest
 
                     last_seen[thread.id] = newest
+                    save_seen(last_seen)
                     lines = []
 
                     for m in new:

@@ -95,6 +95,19 @@ def history(session):
     return messages
 
 
+def sexted_recently(session, hours = 3):
+    rows = conn.execute(
+        "SELECT content FROM messages WHERE session = ? AND role = 'user' AND created_at >= datetime('now', ?)",
+        (session, f"-{hours} hours"),
+    ).fetchall()
+
+    for (content,) in rows:
+        if SEXUAL_INTENT.search(content or ""):
+            return True
+
+    return False
+
+
 def hours_since_reply(session):
     row = conn.execute(
         "SELECT (julianday('now') - julianday(created_at)) * 24 FROM messages WHERE session = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1",
@@ -375,12 +388,7 @@ def respond(text, session = "", name = "", voice = True):
         if message["role"] == "user":
             user_messages.append(message)
 
-    sexual_history = False
-    
-    for message in user_messages:
-        if SEXUAL_INTENT.search(message["content"] or ""):
-            sexual_history = True
-            break
+    sexual_history = sexted_recently(session)
 
     previous_user = None
     
@@ -448,7 +456,16 @@ def respond(text, session = "", name = "", voice = True):
     elif sexual_history:
         result = fresh_reply(prompt, messages, INTIMATE_MODEL)
     else:
-        result = ask_model(prompt, messages)
+        start = 0
+
+        for i, m in enumerate(messages):
+            if m["role"] == "user" and SEXUAL_INTENT.search(m["content"] or ""):
+                start = i + 1
+
+        while start < len(messages) and messages[start]["role"] == "assistant":
+            start += 1
+
+        result = ask_model(prompt, messages[start:])
 
     if not kid and not first:
         if str(result.get("minor")).lower() == "true":
