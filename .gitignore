@@ -7,6 +7,8 @@ insta_session.json
 claudina-lora/
 claudina-model/
 *.gguf
-pics/
+selfies/
+selfie-venv/
+face.png
 insta_state.json
 clock_offset.json

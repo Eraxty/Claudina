@@ -110,3 +110,18 @@ def doomscroll(cl, threads, reel):
             save("assistant", text, session)
             
             print(f"claudina -> {pick['to']}: {text}")
+
+
+def scroll(cl, threads):
+    
+    print("doomscrolling")
+
+    for reel in cl.reels(amount = 8):
+    
+        try:
+            doomscroll(cl, threads, reel)
+    
+        except Exception as e:
+            print(f"error while scrolling: {e}")
+
+    print("done scrolling yayayya")

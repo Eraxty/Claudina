@@ -433,7 +433,7 @@ def respond(text, session = "", name = "", voice = True):
     if interest < 0.45:
         prompt += "If they ask for a pic of you, you don't know them well enough yet, say no casually. "
     else:
-        prompt += "If they ask for a pic of you, you're sending one right after this. "
+        prompt += "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally. "
 
     else:
 
