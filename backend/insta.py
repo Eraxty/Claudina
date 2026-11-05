@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 import subprocess
 import time
 
@@ -11,7 +12,9 @@ from instagrapi import Client
 from instagrapi.exceptions import LoginRequired
 
 from available import get_status
-from main import respond
+from db import conn
+from main import respond, save
+from reels import doomscroll, watch
 from state import get_state, is_minor
 
 load_dotenv()
@@ -21,6 +24,7 @@ PASSWORD = os.environ.get("INSTA_PASSWORD", "")
 
 SESSION_FILE = os.path.join(os.path.dirname(__file__), "insta_session.json")
 STATE_FILE = os.path.join(os.path.dirname(__file__), "insta_state.json")
+PICS_DIR = os.path.join(os.path.dirname(__file__), "pics")
 
 
 class InstaClient(Client):
@@ -98,6 +102,30 @@ def sent_at(message):
     return message.timestamp
 
 
+def send_pic(cl, thread_id, session):
+    pics = []
+
+    for name in os.listdir(PICS_DIR):
+        already_sent = conn.execute(
+            "SELECT 1 FROM messages WHERE session = ? AND content = ?",
+            (session, f"[sent a pic: {name}]"),
+        ).fetchone()
+
+        if not already_sent:
+            pics.append(name)
+
+    if not pics:
+        return
+
+    name = random.choice(pics)
+    time.sleep(random.randint(5, 20))
+    cl.direct_send_photo(os.path.join(PICS_DIR, name), thread_ids = [thread_id])
+    
+    save("assistant", f"[sent a pic: {name}]", session)
+    
+    print(f"claudina: [pic] {name}")
+
+
 def affection(thread):
     if not thread.users:
         return 0
@@ -110,6 +138,8 @@ def run():
     last_seen = load_seen()
     last_read = {}
     next_open = 0
+    next_scroll = 0
+    feed = []
     was_free = False
 
     print(f"logged in as @{USERNAME}")
@@ -133,7 +163,7 @@ def run():
             continue
 
         if status["available"]:
-            next_open = time.time() + random.randint(30, 300)
+            next_open = time.time() + random.randint(10, 60)
         else:
             next_open = time.time() + random.randint(900, 2700)
 
@@ -157,10 +187,11 @@ def run():
                 new = []
 
                 for m in thread.messages:
-                    if str(m.user_id) == str(user.pk) and m.item_type == "text" and m.timestamp > since:
+                    if str(m.user_id) == str(user.pk) and m.timestamp > since:
                         new.append(m)
 
                 session = f"insta:{user.pk}"
+                asked = ""
 
                 if new:
                     new.sort(key = sent_at)
@@ -175,7 +206,19 @@ def run():
                     lines = []
 
                     for m in new:
-                        lines.append(m.text)
+                        line = m.text or watch(m)
+
+                        if line:
+                            lines.append(line)
+
+                        if m.text:
+                            asked += m.text.lower()
+
+                    if not lines:
+                        continue
+
+                    if "reel" in asked:
+                        next_scroll = 0
 
                     text = "\n".join(lines)
                     print(f"{user.username}: {text}")
@@ -219,6 +262,20 @@ def run():
                     except Exception as e:
                         print(f"voice note didnt send, texting it instead: {e}")
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
+
+                wants_pic = re.search(r"\b(pic|pics|selfie)\b", asked)
+
+                if wants_pic and affection(thread) >= 0.45 and os.path.isdir(PICS_DIR):
+                    send_pic(cl, thread.id, session)
+
+            if status["available"] and time.time() > next_scroll:
+                next_scroll = time.time() + random.randint(3600, 3 * 3600)
+                feed = cl.reels(amount = 8)
+                print("doomscrolling")
+
+            if feed and status["available"]:
+                doomscroll(cl, threads, feed.pop(0))
+                next_open = time.time() + random.randint(2, 8)
 
         except LoginRequired:
             cl.relogin()

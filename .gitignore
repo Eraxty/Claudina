@@ -7,3 +7,6 @@ insta_session.json
 claudina-lora/
 claudina-model/
 *.gguf
+pics/
+insta_state.json
+clock_offset.json

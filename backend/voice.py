@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import threading
@@ -10,7 +9,7 @@ import numpy as np
 import soundfile as sf
 
 warnings.filterwarnings("ignore")
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 
 MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
 
