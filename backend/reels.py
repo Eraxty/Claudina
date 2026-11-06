@@ -1,3 +1,4 @@
+import base64
 import os
 import subprocess
 import tempfile
@@ -8,11 +9,33 @@ import requests
 from ollama import chat
 
 from gpu_lock import GPU_LOCK
-from main import ask_model, save
+from main import ask_model, groq, save
 from memory import top_memories
 from state import get_state, is_minor
 
 VISION_MODEL = os.environ.get("VISION_MODEL", "gemma3:4b")
+GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
+HEARING_MODEL = os.environ.get("HEARING_MODEL", "whisper-large-v3-turbo")
+
+LOOK_PROMPT = "in one short sentence with no intro, say what's in this or what happens and any text on screen"
+
+
+def look_groq(frames):
+    content = [{"type": "text", "text": LOOK_PROMPT}]
+
+    for frame in frames:
+        with open(frame, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}})
+
+    response = groq.chat.completions.create(
+        model = GROQ_VISION_MODEL,
+        messages = [{"role": "user", "content": content}],
+        reasoning_effort = "low",
+    )
+
+    return response.choices[0].message.content
 
 
 def look(image, video):
@@ -26,15 +49,25 @@ def look(image, video):
                     f.write(requests.get(str(image), timeout = 20).content)
 
             frames = sorted(f"{folder}/{name}" for name in os.listdir(folder))
+            seen = None
 
-            with GPU_LOCK:
-                response = chat(model = VISION_MODEL, messages = [{
-                    "role": "user",
-                    "content": "in one short sentence with no intro, say what's in this or what happens and any text on screen",
-                    "images": frames,
-                }])
+            if groq:
+                try:
+                    seen = look_groq(frames)
+                except Exception as e:
+                    print(f"groq couldnt see it running locally: {e}")
 
-        return " ".join(response.message.content.split())
+            if not seen:
+                with GPU_LOCK:
+                    response = chat(model = VISION_MODEL, messages = [{
+                        "role": "user",
+                        "content": LOOK_PROMPT,
+                        "images": frames,
+                    }])
+
+                seen = response.message.content
+
+        return " ".join(seen.split())
 
     except Exception as e:
         print(f"couldnt watch it: {e}")
@@ -42,7 +75,37 @@ def look(image, video):
         return "couldnt load it"
 
 
+def hear(url):
+    if not groq:
+        return None
+
+    try:
+        with tempfile.TemporaryDirectory() as folder:
+            path = f"{folder}/voice.m4a"
+
+            with open(path, "wb") as f:
+                f.write(requests.get(str(url), timeout = 20).content)
+
+            with open(path, "rb") as f:
+                heard = groq.audio.transcriptions.create(file = f, model = HEARING_MODEL)
+
+        return " ".join(heard.text.split())
+
+    except Exception as e:
+        print(f"couldnt hear it: {e}")
+
+        return None
+
+
 def watch(m):
+    if m.item_type == "voice_media" and m.media and m.media.audio_url:
+        heard = hear(m.media.audio_url)
+
+        if heard:
+            return f"[sent you a voice note saying: {heard}]"
+
+        return "[sent you a voice note but it wouldnt play]"
+
     if m.clip or m.media_share:
         shared = m.clip or m.media_share
         return f"[sent you a reel: {look(shared.thumbnail_url, shared.video_url)}, caption: {shared.caption_text[:200]}]"

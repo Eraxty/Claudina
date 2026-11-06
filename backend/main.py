@@ -41,6 +41,7 @@ ALT_MODEL = (
 )
 
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+GROQ_BACKUP_MODEL = os.environ.get("GROQ_BACKUP_MODEL", "openai/gpt-oss-120b")
 
 groq = None
 
@@ -132,15 +133,15 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
 
     messages = convo
     content = None
-    tries = 0
+    groq_models = []
 
     if groq and model_override is None:
-        tries = 2
+        groq_models = [GROQ_MODEL, GROQ_MODEL, GROQ_BACKUP_MODEL]
 
-    for _ in range(tries):
+    for groq_model in groq_models:
         try:
             response = groq.chat.completions.create(
-                model = GROQ_MODEL,
+                model = groq_model,
                 messages = messages,
                 response_format = {"type": "json_object"},
                 reasoning_effort = "low",
@@ -153,7 +154,7 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
 
             break
         except Exception as e:
-            print(f"groq failed: {e}")
+            print(f"{groq_model} failed: {e}")
 
     if content is None:
         local_model = model_override or MODEL
@@ -471,7 +472,7 @@ def respond(text, session = "", name = "", voice = True):
         "Like: yo -> yo wsp, wsp -> nm wbu, hru -> im good wbu, what u doing -> nothing rn wbu, bruh -> lmaoo what. "
         "Short isn't rude though, if they ask how you are ask them back, and never reply with just k or ok. "
         "Most texts have no emoji, one at most. Never say the same thing twice. "
-        "Stuff in [brackets] is a reel or pic they sent or you sent, react to it like you actually saw it. Never write [brackets] yourself. "
+        "Stuff in [brackets] is a reel, pic or voice note they sent or you sent, react to it like you actually saw or heard it. Never write [brackets] yourself. "
     )
 
     if interest < 0.45:

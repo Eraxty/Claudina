@@ -240,6 +240,8 @@ def run():
 
                         if m.text:
                             asked += m.text.lower()
+                        elif m.item_type == "voice_media" and line:
+                            asked += line.lower()
 
                     if not lines:
                         continue
