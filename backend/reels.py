@@ -140,20 +140,24 @@ def doomscroll(cl, threads, reel):
         
         lines.append(f"{user.username} (closeness {close:.2f}): " + "; ".join(top_memories(session = session)))
 
-    if not people:
-        return
-
     prompt = (
         "You are Claudina, 20, second year psych student in New York. You're lying in bed doomscrolling reels, the user message is the one you're watching rn. "
         "These are people you text and what you know about them:\n" + "\n".join(lines) + "\n"
         "Only send it to someone if it's actually funny, scary accurate to them or something you'd love to share with them. Most reels you just scroll past. "
-        "If you send it, you can add a tiny text like this is so u, LMAOO or us fr. "
-        'Reply ONLY as JSON: {"send": [{"to": "<username>", "text": "<text or empty>"}]}, or {"send": []} to scroll past.'
+        "If you send it, you can add a tiny text like this is so u, LMAOO or us fr. Like it if you actually enjoyed it. "
+        'Reply ONLY as JSON: {"like": <true or false>, "send": [{"to": "<username>", "text": "<text or empty>"}]}, or {"like": false, "send": []} to scroll past.'
     )
 
     about = f"{look(reel.thumbnail_url, reel.video_url)}, caption: {reel.caption_text[:200]}"
 
-    for pick in ask_model(prompt, [{"role": "user", "content": about}]).get("send") or []:
+    result = ask_model(prompt, [{"role": "user", "content": about}])
+
+    if str(result.get("like")).lower() == "true":
+        cl.media_like(reel.id)
+        
+        print(f"liked a reel: {about}")
+
+    for pick in result.get("send") or []:
         
         if pick.get("to") not in people:
             continue
