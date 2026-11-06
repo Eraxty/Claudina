@@ -17,8 +17,10 @@ from config import (
 )
 from gpu_lock import GPU_LOCK
 
+from day import her_day
 from db import conn
 from memory import save_memory, top_memories
+from plans import due_plan, mark_asked, save_plan
 
 from state import (
     confirm_adult,
@@ -384,6 +386,8 @@ def respond(text, session = "", name = "", voice = True):
     interest = state["affection"]
     status = get_status()
     known = top_memories(session = session)
+    today, yesterday = her_day(ask_model)
+    plan = due_plan(session)
 
     user_messages = []
 
@@ -419,6 +423,15 @@ def respond(text, session = "", name = "", voice = True):
     prompt += vibe(interest, kid, adult)
     prompt += f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
 
+    if today:
+        prompt += "Stuff that happened to you today so far: " + "; ".join(today) + ". "
+
+    if yesterday:
+        prompt += "Yesterday: " + "; ".join(yesterday) + ". "
+
+    if today or yesterday:
+        prompt += "Only bring these up if they ask about your day or it actually fits, and stick to them instead of making up other stuff. "
+
     if status["available"]:
         prompt += "You are free to text. "
     else:
@@ -452,10 +465,15 @@ def respond(text, session = "", name = "", voice = True):
     else:
         prompt += "Keep things nonsexual. If their age is unconfirmed, ask how old they are when they make a sexual advance. If they are an adult but affection is below 0.7, say you want more closeness first. "
 
+    if plan:
+        prompt += f"They told you they had this coming up: {plan['about']}. It already happened {plan['when']}. You remembered, so in this text ask them how it went, even if it's not what they're talking about, like oh wait how did the {plan['about']} go. "
+
     prompt += (
         "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
+        "\"plan\": \"<something they just said they're going to do or have coming up that you could ask about after, like their job interview or their exam, otherwise empty string>\", "
+        "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, explicit sexual stuff, creepy or pushy makes it go down>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
@@ -557,6 +575,24 @@ def respond(text, session = "", name = "", voice = True):
         if w in lower:
             save_memory(fact, session = session)
             break
+
+    upcoming = str(result.get("plan") or "")
+
+    if intimate_turn or first:
+        upcoming = ""
+
+    for w in re.findall(r"[a-z]{4,}", upcoming.lower()):
+        if w in lower:
+            save_plan(upcoming, result.get("when"), session = session)
+            break
+
+    if plan and not intimate_turn:
+        said = " ".join(bubbles).lower()
+
+        for w in re.findall(r"[a-z]{4,}", plan["about"].lower()):
+            if w in said:
+                mark_asked(plan["id"])
+                break
 
     memo = None
     send_memo = wants_voice
