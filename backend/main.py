@@ -43,7 +43,7 @@ INTIMATE_MODEL = (
     or "huihui_ai/qwen3-abliterated:8b"
 )
 
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 groq = None
 

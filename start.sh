@@ -41,6 +41,35 @@ if ! ollama list >/dev/null 2>&1; then
   ollama list >/dev/null 2>&1 || die "ollama didn't start, try running 'ollama serve' yourself"
 fi
 
+if [ ! -f "$BACKEND/.env" ]; then
+  read -rp "groq api key (free at console.groq.com/keys): " KEY
+  read -rp "her instagram username (enter to just chat here): " INSTA_USER
+  INSTA_PASS=""
+  if [ -n "$INSTA_USER" ]; then
+    read -rsp "her instagram password: " INSTA_PASS
+    echo
+  fi
+
+  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\n' "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" > "$BACKEND/.env"
+  chmod 600 "$BACKEND/.env"
+  rm -f "$BACKEND/insta_session.json" "$BACKEND/insta_state.json"
+
+  read -rp "download the local models for Explicit chats and pics? needs an nvidia gpu and ~20gb (y/n): " SPICY
+  if [[ "$SPICY" == y* ]]; then
+    ollama pull huihui_ai/qwen3-abliterated:8b || echo "couldn't download the sexting model"
+    PY="$(find_python)" || PY=python3
+    if [ ! -d "$BACKEND/selfie-venv" ]; then
+      "$PY" -m venv "$BACKEND/selfie-venv"
+    fi
+    echo "downloading her pic model and making her face, takes a while..."
+    if "$BACKEND/selfie-venv/bin/pip" install torch diffusers transformers accelerate safetensors pillow; then
+      (cd "$BACKEND" && selfie-venv/bin/python -c "import os, selfie; pipe = selfie.load(); os.path.exists(selfie.FACE_FILE) or selfie.make_face(pipe)") || echo "pics didn't set up, she'll still work without them"
+    else
+      echo "pics didn't set up, she'll still work without them"
+    fi
+  fi
+fi
+
 MODEL="${OLLAMA_MODEL:-}"
 if [ -z "$MODEL" ] && [ -f "$BACKEND/.env" ]; then
   MODEL="$(sed -n 's/^OLLAMA_MODEL=//p' "$BACKEND/.env" | tail -n 1 | tr -d "\"'")"
