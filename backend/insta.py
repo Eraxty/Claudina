@@ -9,12 +9,13 @@ from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 from instagrapi import Client
-from instagrapi.exceptions import LoginRequired
+from instagrapi.exceptions import AccountSuspended, ChallengeRequired, FeedbackRequired, LoginRequired, PleaseWaitFewMinutes
 from ollama import generate, ps
 
 from available import get_status
 from config import OFF_LIMITS
 from main import ask_model, respond, save, crossed_line_recently
+from plans import due_plan
 from reels import doomscroll, watch
 from state import get_state, is_verified, is_minor
 
@@ -91,6 +92,9 @@ def misses(thread, session):
     for m in thread.messages:
         if m.timestamp > last.timestamp:
             last = m
+
+    if due_plan(session) and datetime.now() - last.timestamp > timedelta(hours = 1):
+        return True
 
     if str(last.user_id) != str(thread.users[0].pk) and interest < 0.85:
         return False
@@ -313,6 +317,15 @@ def run():
             cl.relogin()
             cl.dump_settings(SESSION_FILE)
 
+        except AccountSuspended:
+            print("instagram suspended her account, open instagram on your phone, log in as her and appeal it")
+            return
+
+        except (ChallengeRequired, FeedbackRequired, PleaseWaitFewMinutes) as e:
+            print(f"instagram flagged her ({e}), stopping so it doesn't get worse")
+            print("open instagram on your phone, log in as her and do whatever it asks, then start her again")
+            return
+
         except Exception as e:
             print(f"error: {e}")
             time.sleep(15)
@@ -321,4 +334,10 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except AccountSuspended:
+        print("instagram suspended her account, open instagram on your phone, log in as her and appeal it")
+    except ChallengeRequired as e:
+        print(f"instagram won't let her log in: {e}")
+        print("open instagram on your phone, log in as her and do whatever it asks, then start her again")
