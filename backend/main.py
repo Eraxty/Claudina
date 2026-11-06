@@ -40,7 +40,7 @@ ALT_MODEL = (
     os.environ.get("CLAUDINA_ALT_MODEL")
 )
 
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 groq = None
 
