@@ -13,6 +13,9 @@ os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 
 MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
 
+GROQ_VOICE_MODEL = os.environ.get("GROQ_VOICE_MODEL", "canopylabs/orpheus-v1-english")
+GROQ_VOICE = os.environ.get("GROQ_VOICE", "autumn")
+
 MOOD_VOICES = {
     "playful": ("af_heart", 1.03),
     "sweet": ("af_bella", 1.00),
@@ -49,11 +52,39 @@ def clean_for_speaking(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def groq_voice_memo(text, path):
+    if not os.environ.get("GROQ_API_KEY"):
+        return False
+
+    try:
+        from groq import Groq
+
+        response = Groq().audio.speech.create(
+            model = GROQ_VOICE_MODEL,
+            voice = GROQ_VOICE,
+            input = text,
+            response_format = "wav",
+        )
+        response.write_to_file(path)
+
+    except Exception as e:
+        print(f"groq voice failed using kokoro : {e}")
+        return False
+
+    return True
+
+
 def make_voice_memo(text, mood = None):
     text = clean_for_speaking(text)
 
     if not text:
         return None
+
+    os.makedirs(MEMOS_DIR, exist_ok = True)
+    path = os.path.join(MEMOS_DIR, f"claudina_{datetime.now().timestamp():.0f}.wav")
+
+    if groq_voice_memo(text, path):
+        return path
 
     voice_id, speed = MOOD_VOICES.get(mood, MOOD_VOICES[None])
     audio_chunks = []
@@ -73,9 +104,6 @@ def make_voice_memo(text, mood = None):
     if not audio_chunks:
         return None
 
-    os.makedirs(MEMOS_DIR, exist_ok = True)
-
-    path = os.path.join(MEMOS_DIR, f"claudina_{datetime.now().timestamp():.0f}.wav")
     sf.write(path, np.concatenate(audio_chunks), 24000)
 
     return path
