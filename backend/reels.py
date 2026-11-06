@@ -7,6 +7,7 @@ import requests
 
 from ollama import chat
 
+from gpu_lock import GPU_LOCK
 from main import ask_model, save
 from memory import top_memories
 from state import get_state, is_minor
@@ -26,11 +27,12 @@ def look(image, video):
 
             frames = sorted(f"{folder}/{name}" for name in os.listdir(folder))
 
-            response = chat(model = VISION_MODEL, messages = [{
-                "role": "user",
-                "content": "in one short sentence with no intro, say what's in this or what happens and any text on screen",
-                "images": frames,
-            }])
+            with GPU_LOCK:
+                response = chat(model = VISION_MODEL, messages = [{
+                    "role": "user",
+                    "content": "in one short sentence with no intro, say what's in this or what happens and any text on screen",
+                    "images": frames,
+                }])
 
         return " ".join(response.message.content.split())
 

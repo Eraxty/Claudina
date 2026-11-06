@@ -15,6 +15,7 @@ from config import (
     SEXUAL_INTENT,
     UNDERAGE,
 )
+from gpu_lock import GPU_LOCK
 
 from db import conn
 from memory import save_memory, top_memories
@@ -162,12 +163,13 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
             print(f"using {local_model} instead")
 
         try:
-            response = chat(
-                model = local_model,
-                messages = messages,
-                format = "json",
-                think = False,
-            )
+            with GPU_LOCK:
+                response = chat(
+                    model = local_model,
+                    messages = messages,
+                    format = "json",
+                    think = False,
+                )
             content = response.message.content
 
             if content and REFUSAL.search(content):
@@ -181,12 +183,13 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
                 return {}
 
             try:
-                response = chat(
-                    model = MODEL,
-                    messages = messages,
-                    format = "json",
-                    think = False,
-                )
+                with GPU_LOCK:
+                    response = chat(
+                        model = MODEL,
+                        messages = messages,
+                        format = "json",
+                        think = False,
+                    )
                 content = response.message.content
             except Exception as e:
                 print(f"{MODEL} failed: {e}")
