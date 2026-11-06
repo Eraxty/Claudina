@@ -3,7 +3,6 @@ import os
 import random
 import re
 import subprocess
-import threading
 import time
 
 from datetime import datetime, timedelta
@@ -16,7 +15,7 @@ from ollama import generate, ps
 from available import get_status
 from config import OFF_LIMITS
 from main import ask_model, respond, save, crossed_line_recently
-from reels import scroll, watch
+from reels import doomscroll, watch
 from state import get_state, is_verified, is_minor
 
 load_dotenv()
@@ -115,12 +114,12 @@ def send_pic(cl, thread_id, session, doing, asked, alt = False):
             'Reply ONLY as JSON: {"pic": "<what the photo shows>", "face": <true if your face is in it, otherwise false>}'
         )
 
-        result = ask_model(prompt, [{"role": "user", "content": asked}])
-        scene = str(result.get("pic") or f"selfie while {doing}")
-        face = "noface"
+    result = ask_model(prompt, [{"role": "user", "content": asked}])
+    scene = str(result.get("pic") or f"selfie while {doing}")
+    face = "noface"
 
-        if str(result.get("face")).lower() == "true":
-            face = "face"
+    if str(result.get("face")).lower() == "true":
+        face = "face"
 
     os.makedirs(SELFIES_DIR, exist_ok = True)
     path = os.path.join(SELFIES_DIR, f"{time.time_ns()}.jpg")
@@ -131,8 +130,9 @@ def send_pic(cl, thread_id, session, doing, asked, alt = False):
     except Exception as e:
         print(f"couldn't unload Ollama before image generation: {e}")
 
-    print(f"taking a pic [{mode}]: {scene}")
+    print(f"taking a pic: {scene}")
 
+    
     result = subprocess.run(
         [SELFIE_PYTHON, SELFIE_SCRIPT, mode, scene, face, path],
         capture_output = True,
@@ -141,46 +141,12 @@ def send_pic(cl, thread_id, session, doing, asked, alt = False):
 
     if result.returncode != 0:
         print(f"pic didnt work: {result.stderr[-500:]}")
-        return False
+        return
 
     cl.direct_send_photo(path, thread_ids = [thread_id])
 
     save("assistant", f"[sent a pic: {scene}]", session)
     print(f"claudina: [pic] {scene}")
-    return True
-
-
-def send_requested_pic(cl, thread, session, doing, asked, bubbles = ()):
-    if not re.search(r"\b(pic|pics|selfie|photo)\b", asked):
-        return False
-
-    username = thread.users[0].username if thread.users else "user"
-    interest = affection(thread)
-        OFF_LIMITS.search(asked)
-        or crossed_line_recently(session)
-        or any(OFF_LIMITS.search(bubble) for bubble in bubbles)
-    )
-
-    if is_minor(session):
-        print(f"skipping photo for @{username}: user is marked as a minor")
-        return False
-
-        if not is_verified(session):
-            return False
-        if interest < 0.75:
-            return False
-        alt = True
-    else:
-        if interest < 0.45:
-            print(f"skipping casual photo for @{username}: affection is {interest:.2f}, needs 0.45")
-            return False
-        alt = False
-
-    if not os.path.isfile(SELFIE_PYTHON):
-        print(f"skipping photo for @{username}: {SELFIE_PYTHON} is missing")
-        return False
-
-    return send_pic(cl, thread.id, session, doing, asked, alt = alt)
 
 
 def affection(thread):
@@ -196,7 +162,7 @@ def run():
     last_read = {}
     next_open = 0
     next_scroll = 0
-    scrolling = None
+    feed = []
     was_free = False
 
     print(f"logged in as @{USERNAME}")
@@ -290,8 +256,6 @@ def run():
                 bubbles, memo = respond(text, session = session, name = user.username)
 
                 if not bubbles:
-                    print(f"no text reply for @{user.username}; checking for a photo request")
-                    send_requested_pic(cl, thread, session, status["doing"], asked)
                     continue
 
                 if thread.pending:
@@ -322,16 +286,28 @@ def run():
                         print(f"voice note didnt send, texting it instead: {e}")
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
-                send_requested_pic(cl, thread, session, status["doing"], asked, bubbles)
+                wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
+
+                    send_pic(cl, thread.id, session, status["doing"], asked)
+
+                if (
+                    wants_pic
+                    and affection(thread) >= 0.75
+                    and is_verified(session)
+                    and not is_minor(session)
+                    and os.path.exists(SELFIE_PYTHON)
+                ):
+                    send_pic(cl, thread.id, session, status["doing"], asked, alt = True)
 
 
             if status["available"] and time.time() > next_scroll:
                 next_scroll = time.time() + random.randint(3600, 3 * 3600)
-                scrolling = threading.Thread(target = scroll, args = (cl, threads), daemon = True)
-                scrolling.start()
+                feed = cl.reels(amount = 8)
+                print("doomscrolling")
 
-            if scrolling and scrolling.is_alive():
-                next_open = time.time() + random.randint(2, 5)
+            if feed and status["available"]:
+                doomscroll(cl, threads, feed.pop(0))
+                next_open = time.time() + random.randint(2, 8)
 
         except LoginRequired:
             cl.relogin()
