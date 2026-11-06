@@ -17,6 +17,7 @@ from config import OFF_LIMITS
 from main import ask_model, respond, save, crossed_line_recently
 from plans import due_plan
 from reels import doomscroll, watch
+from stories import watch_stories
 from state import get_state, is_verified, is_minor
 
 load_dotenv()
@@ -166,6 +167,7 @@ def run():
     last_read = {}
     next_open = 0
     next_scroll = 0
+    next_stories = time.time() + random.randint(600, 1800)
     feed = []
     was_free = False
 
@@ -286,10 +288,13 @@ def run():
                         m4a = memo.replace(".wav", ".m4a")
                         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", memo, m4a], check = True)
                         time.sleep(2 + len(bubbles[-1]) / 15)
+                        
                         cl.direct_send_voice(m4a, thread_ids = [thread.id])
+                        
                         print(f"claudina: [voice note] {bubbles[-1]}")
                     except Exception as e:
                         print(f"voice note didnt send, texting it instead: {e}")
+                        
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
                 wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
@@ -314,6 +319,10 @@ def run():
             if feed and status["available"]:
                 doomscroll(cl, threads, feed.pop(0))
                 next_open = time.time() + random.randint(2, 8)
+
+            if status["available"] and time.time() > next_stories:
+                next_stories = time.time() + random.randint(5400, 4 * 3600)
+                watch_stories(cl, threads)
 
         except LoginRequired:
             cl.relogin()
