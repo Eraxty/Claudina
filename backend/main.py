@@ -330,6 +330,16 @@ def vibe(interest, kid, adult):
     return "You don't really know them, be chill but a bit reserved. No flirting, never call them babe. If they try to rizz you, laugh it off like lol ok or slow down, don't get mad. "
 
 
+def annoyed(annoyance):
+    if annoyance >= 0.5:
+        return "You're actually annoyed with them right now because of how they've been acting. Be dry and short, you can call them out on it, don't pretend everything's fine. Only warm up if they apologize or are actually sweet. "
+
+    if annoyance >= 0.3:
+        return "They've been kind of irritating you, so you're a little drier and shorter with them than usual. "
+
+    return ""
+
+
 def respond(text, session = "", name = "", voice = True):
     first = text is None
     lower = ""
@@ -383,10 +393,24 @@ def respond(text, session = "", name = "", voice = True):
         return [age_question], None
 
     state = get_state(session)
+
+    if state["annoyance"] > 0.1:
+        cooled = hours_since_reply(session) * 0.05
+
+        if cooled > state["annoyance"] - 0.1:
+            cooled = state["annoyance"] - 0.1
+
+        state = update_state(annoyance_delta = -cooled, session = session)
+
+    ignored_last = len(messages) >= 2 and messages[-2]["role"] == "user"
+
+    if not first and not ignored_last and state["annoyance"] >= 0.7 and random.random() < 0.4:
+        return [], None
+
     interest = state["affection"]
     status = get_status()
     known = top_memories(session = session)
-    today, yesterday = her_day(ask_model)
+    today, yesterday, feeling = her_day(ask_model)
     plan = due_plan(session)
 
     user_messages = []
@@ -421,6 +445,7 @@ def respond(text, session = "", name = "", voice = True):
     )
 
     prompt += vibe(interest, kid, adult)
+    prompt += annoyed(state["annoyance"])
     prompt += f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
 
     if today:
@@ -431,6 +456,9 @@ def respond(text, session = "", name = "", voice = True):
 
     if today or yesterday:
         prompt += "Only bring these up if they ask about your day or it actually fits, and stick to them instead of making up other stuff. "
+
+    if feeling:
+        prompt += f"Your mood right now: {feeling}. Let it show a little in how you text, but don't announce it unless they ask how you are. "
 
     if status["available"]:
         prompt += "You are free to text. "
@@ -475,6 +503,7 @@ def respond(text, session = "", name = "", voice = True):
         "\"plan\": \"<something they just said they're going to do or have coming up that you could ask about after, like their job interview or their exam, otherwise empty string>\", "
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, explicit sexual stuff, creepy or pushy makes it go down>, "
+        "\"annoyance\": <-0.2 to 0.2, goes up 0.1 to 0.2 if they're rude, call you boring or dry, are pushy, keep asking for pics or sex after you said no, ignore your questions, or say something dumb, goes down if they apologize, are sweet or make you laugh, normal texts are 0>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
@@ -518,7 +547,23 @@ def respond(text, session = "", name = "", voice = True):
         if change < lowest:
             change = lowest
 
-        state = update_state(affection_delta = change, session = session)
+        try:
+            irritation = float(result.get("annoyance", 0))
+        except (TypeError, ValueError):
+            irritation = 0
+
+        irritation = irritation * 1.5
+
+        if intimate_turn:
+            irritation = min(0, irritation)
+
+        if irritation > 0.25:
+            irritation = 0.25
+
+        if irritation < -0.25:
+            irritation = -0.25
+
+        state = update_state(affection_delta = change, annoyance_delta = irritation, session = session)
 
         if state["affection"] <= 0.05:
             return [], None
