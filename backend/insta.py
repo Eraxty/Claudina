@@ -14,10 +14,11 @@ from ollama import generate, ps
 
 from available import get_status
 from config import SEXUAL_INTENT
+from day import her_day
 from main import ask_model, respond, save, sexted_recently
 from plans import due_plan
-from reels import doomscroll, watch
-from stories import watch_stories
+from reels import doomscroll, look, watch
+from stories import posted_today, remember_story, story_reply, watch_stories
 from state import get_state, is_adult_confirmed, is_minor
 
 load_dotenv()
@@ -133,6 +134,18 @@ def send_pic(cl, thread_id, session, doing, asked, explicit = False):
     if str(result.get("face")).lower() == "true":
         face = "face"
 
+    path = take_pic(scene, face, explicit)
+
+    if not path:
+        return
+
+    cl.direct_send_photo(path, thread_ids = [thread_id])
+
+    save("assistant", f"[sent a pic: {scene}]", session)
+    print(f"claudina: [pic] {scene}")
+
+
+def take_pic(scene, face, explicit = False):
     os.makedirs(SELFIES_DIR, exist_ok = True)
     path = os.path.join(SELFIES_DIR, f"{time.time_ns()}.jpg")
 
@@ -154,12 +167,69 @@ def send_pic(cl, thread_id, session, doing, asked, explicit = False):
 
     if result.returncode != 0:
         print(f"pic didnt work: {result.stderr[-500:]}")
+        return None
+
+    return path
+
+
+def post_story(cl):
+    today, _, _ = her_day(ask_model)
+
+    if not today or posted_today() or random.random() > 0.3:
         return
 
-    cl.direct_send_photo(path, thread_ids = [thread_id])
+    prompt = (
+        f"You are Claudina, 20, psych student in New York. This just happened to you: {today[-1]}. "
+        "You're posting it on your instagram story. Pick what the photo shows like a normal girl would post it, "
+        "like your iced coffee, your notes, a mirror pic, your food, the view or a selfie. Keep it casual and fully clothed. "
+        'Reply ONLY as JSON: {"pic": "<what the photo shows>", "face": <true if your face is in it, otherwise false>}'
+    )
 
-    save("assistant", f"[sent a pic: {scene}]", session)
-    print(f"claudina: [pic] {scene}")
+    result = ask_model(prompt, [{"role": "user", "content": today[-1]}])
+    
+    scene = str(result.get("pic") or today[-1])
+    
+    face = "noface"
+
+    if str(result.get("face")).lower() == "true":
+        face = "face"
+
+    path = take_pic(scene, face)
+
+    if not path:
+        return
+
+    story = cl.photo_upload_to_story(path)
+    
+    remember_story(story.pk, scene)
+    
+    print(f"posted a story: {scene}")
+
+
+def profile(cl, user_id, profiles):
+    if user_id in profiles:
+        return profiles[user_id]
+
+    try:
+        info = cl.user_info(user_id)
+    
+    except (AccountSuspended, ChallengeRequired, FeedbackRequired, LoginRequired, PleaseWaitFewMinutes):
+        raise
+    
+    except Exception as e:
+        print(f"couldnt look at their profile: {e}")
+        profiles[user_id] = ""
+        
+        return ""
+
+    about = f"name {info.full_name}, bio: {' '.join((info.biography or '').split())}"
+
+    if info.profile_pic_url:
+        about += f", pfp: {look(info.profile_pic_url, None)}"
+
+    profiles[user_id] = about
+
+    return about
 
 
 def affection(thread):
@@ -177,6 +247,7 @@ def run():
     next_scroll = 0
     next_stories = time.time() + random.randint(600, 1800)
     feed = []
+    profiles = {}
     was_free = False
 
     print(f"logged in as @{USERNAME}")
@@ -243,7 +314,10 @@ def run():
                     lines = []
 
                     for m in new:
-                        line = m.text or watch(m)
+                        if m.reel_share:
+                            line = story_reply(m)
+                        else:
+                            line = m.text or watch(m)
 
                         if line:
                             lines.append(line)
@@ -269,7 +343,8 @@ def run():
                 else:
                     continue
 
-                bubbles, memo = respond(text, session = session, name = user.username)
+                about = profile(cl, user.pk, profiles)
+                bubbles, memo = respond(text, session = session, name = user.username, profile = about)
 
                 if not bubbles:
                     continue
@@ -334,6 +409,9 @@ def run():
             if status["available"] and time.time() > next_stories:
                 next_stories = time.time() + random.randint(5400, 4 * 3600)
                 watch_stories(cl, threads)
+
+                if os.path.exists(SELFIE_PYTHON):
+                    post_story(cl)
 
         except LoginRequired:
             cl.relogin()

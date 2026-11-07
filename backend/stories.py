@@ -1,6 +1,7 @@
 import random
 import time
 
+from available import current_time
 from db import conn
 from state import get_state, is_minor
 
@@ -8,7 +9,46 @@ conn.execute("""
 CREATE TABLE IF NOT EXISTS seen_stories (
     pk TEXT PRIMARY KEY)""")
 
+conn.execute("""
+CREATE TABLE IF NOT EXISTS her_stories (
+    pk TEXT PRIMARY KEY,
+    scene TEXT NOT NULL,
+    day TEXT NOT NULL)""")
+
 conn.commit()
+
+
+def posted_today():
+    today = current_time().date().isoformat()
+    row = conn.execute("SELECT 1 FROM her_stories WHERE day = ?", (today,)).fetchone()
+
+    return row is not None
+
+
+def remember_story(pk, scene):
+    today = current_time().date().isoformat()
+    conn.execute("INSERT OR REPLACE INTO her_stories (pk, scene, day) VALUES (?, ?, ?)", (str(pk), scene, today))
+    conn.commit()
+
+
+def story_reply(m):
+    share = m.reel_share or {}
+    text = str(share.get("text") or m.text or "").strip()
+    media = share.get("media") or {}
+
+    row = conn.execute("SELECT scene FROM her_stories WHERE pk = ?", (str(media.get("pk") or ""),)).fetchone()
+    story = "your story"
+
+    if row:
+        story = f"your story of {row[0]}"
+
+    if share.get("type") == "mention":
+        return "[mentioned you in their story]"
+
+    if share.get("type") == "reaction":
+        return f"[reacted {text} to {story}]"
+
+    return f"[replied to {story}: {text}]"
 
 
 def watch_stories(cl, threads):
