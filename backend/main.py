@@ -37,6 +37,8 @@ load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
 
+EXTRA_MODE = os.environ.get("EXTRA_MODE", "0") == "1"
+
 ALT_MODEL = (
     os.environ.get("CLAUDINA_ALT_MODEL")
 )
@@ -500,6 +502,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     else:
         prompt += "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally. "
 
+    if not EXTRA_MODE:
     else:
 
     if plan:
@@ -519,7 +522,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     if alt_turn:
         result = fresh_reply(ALT_PROMPT, messages, ALT_MODEL)
-    elif crossed_line:
+    elif EXTRA_MODE and crossed_line:
         result = fresh_reply(prompt, messages, ALT_MODEL)
     else:
         start = 0

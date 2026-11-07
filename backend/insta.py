@@ -15,7 +15,7 @@ from ollama import generate, ps
 from available import get_status
 from config import OFF_LIMITS
 from day import her_day
-from main import ask_model, respond, save, crossed_line_recently
+from main import EXTRA_MODE, ask_model, respond, save, crossed_line_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
@@ -417,6 +417,7 @@ def run():
                         cl.direct_send_voice(m4a, thread_ids = [thread.id])
                         
                         print(f"claudina: [voice note] {bubbles[-1]}")
+
                     except Exception as e:
                         print(f"voice note didnt send, texting it instead: {e}")
                         
@@ -424,10 +425,12 @@ def run():
 
                 wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
 
+
                     send_pic(cl, thread.id, session, status["doing"], asked)
 
                 if (
-                    wants_pic
+                    EXTRA_MODE
+                    and wants_pic
                     and affection(thread) >= 0.75
                     and is_verified(session)
                     and not is_minor(session)
