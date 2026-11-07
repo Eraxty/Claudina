@@ -19,7 +19,7 @@ from main import ask_model, respond, save, sexted_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
-from state import get_state, is_adult_confirmed, is_minor
+from state import get_state, is_adult_confirmed, is_away, is_minor
 
 load_dotenv()
 
@@ -105,6 +105,48 @@ def misses(thread, session):
         return False
 
     return random.random() < interest / 100
+
+
+def went_quiet(thread, session):
+    interest = get_state(session)["affection"]
+
+    if interest < 0.45 or is_minor(session) or thread.pending or not thread.messages:
+        return False
+
+    them = str(thread.users[0].pk)
+    ordered = sorted(thread.messages, key = sent_at)
+    last = ordered[-1]
+
+    if str(last.user_id) == them:
+        return False
+
+    quiet = datetime.now() - last.timestamp
+
+    if quiet < timedelta(minutes = 20) or quiet > timedelta(hours = 1):
+        return False
+
+    hers = []
+    theirs = None
+
+    for m in reversed(ordered):
+        if str(m.user_id) == them:
+            theirs = m
+            break
+
+        hers.append(m)
+
+    if theirs is None:
+        return False
+
+    first_of_hers = hers[-1]
+
+    if last.timestamp - first_of_hers.timestamp > timedelta(minutes = 5):
+        return False
+
+    if first_of_hers.timestamp - theirs.timestamp > timedelta(minutes = 30):
+        return False
+
+    return random.random() < interest / 60
 
 
 def sent_at(message):
@@ -300,6 +342,10 @@ def run():
 
                 session = f"insta:{user.pk}"
                 asked = ""
+                nudge = False
+
+                if is_away(session):
+                    continue
 
                 if new:
                     new.sort(key = sent_at)
@@ -340,11 +386,16 @@ def run():
                     text = None
                     print(f"texting {user.username} first")
 
+                elif status["available"] and went_quiet(thread, session):
+                    text = None
+                    nudge = True
+                    print(f"double texting {user.username}")
+
                 else:
                     continue
 
                 about = profile(cl, user.pk, profiles)
-                bubbles, memo = respond(text, session = session, name = user.username, profile = about)
+                bubbles, memo = respond(text, session = session, name = user.username, profile = about, nudge = nudge)
 
                 if not bubbles:
                     continue

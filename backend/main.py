@@ -25,6 +25,7 @@ from plans import due_plan, mark_asked, save_plan
 from state import (
     confirm_adult,
     get_state,
+    go_away,
     is_adult_confirmed,
     is_minor,
     mark_minor,
@@ -341,7 +342,7 @@ def annoyed(annoyance):
     return ""
 
 
-def respond(text, session = "", name = "", voice = True, profile = ""):
+def respond(text, session = "", name = "", voice = True, profile = "", nudge = False):
     first = text is None
     lower = ""
     wants_voice = False
@@ -350,6 +351,8 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
     if text:
         lower = text.lower()
         messages.append({"role": "user", "content": text})
+    elif nudge:
+        messages.append({"role": "user", "content": "(they went quiet in the middle of the chat, you're double texting them)"})
     else:
         messages.append({"role": "user", "content": "(they haven't texted, you're texting them first)"})
 
@@ -476,7 +479,17 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
     if mine:
         prompt += "Stuff you already told people about yourself, never contradict it: " + "; ".join(mine) + ". "
 
-    if first:
+    recent = conn.execute(
+        "SELECT COUNT(*) FROM messages WHERE session = ? AND created_at >= datetime('now', '-2 hours')",
+        (session,),
+    ).fetchone()[0]
+
+    if recent >= 40:
+        prompt += "You've been texting them for a while now. "
+
+    if nudge:
+        prompt += "They stopped answering a little while ago in the middle of the chat and you're double texting. Keep it tiny like hellooo??, u there, ??? or add one more thing to what you were saying, don't be needy about it. "
+    elif first:
         prompt += "You haven't talked in a while and you're texting them first. Keep it tiny like yoo, wsp, hru, wyd, or bring up something you remember about them or what you're doing. "
 
     if wants_voice and interest >= 0.45:
@@ -505,6 +518,7 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
         prompt += f"They told you they had this coming up: {plan['about']}. It already happened {plan['when']}. You remembered, so in this text ask them how it went, even if it's not what they're talking about, like oh wait how did the {plan['about']} go. "
 
     prompt += (
+        "Don't keep every chat going forever. When it fits, like it's late and you're getting sleepy, you're busy, the chat is dying or you've been texting a long time, end it yourself like gtg gn, ok im sleeping, ttyl, but never in the middle of something real. "
         "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
@@ -513,6 +527,7 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, explicit sexual stuff, creepy or pushy makes it go down>, "
         "\"annoyance\": <-0.2 to 0.2, goes up 0.1 to 0.2 if they're rude, call you boring or dry, are pushy, keep asking for pics or sex after you said no, ignore your questions, or say something dumb, goes down if they apologize, are sweet or make you laugh, normal texts are 0>, "
+        "\"bye\": <true if this text ends the chat for now, like gtg, gn, ok im sleeping, ttyl, otherwise false>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
@@ -629,6 +644,9 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
         if w in lower:
             save_memory(fact, session = session)
             break
+
+    if not first and not intimate_turn and str(result.get("byee")).lower() == "true":
+        go_away(session, random.randint(60, 180))
 
     about_me = str(result.get("self") or "")
 

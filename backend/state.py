@@ -37,6 +37,12 @@ try:
 except sqlite3.OperationalError:
     pass
 
+try:
+    conn.execute("ALTER TABLE user_state ADD COLUMN away_until TEXT")
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
+
 
 def get_state(session = ""):
     row = conn.execute(
@@ -82,6 +88,24 @@ def mark_minor(session = ""):
 
 def is_adult_confirmed(session = ""):
     row = conn.execute("SELECT adult_confirmed FROM user_state WHERE session = ?", (session,)).fetchone()
+    return bool(row and row[0])
+
+
+def go_away(session, minutes):
+    get_state(session)
+    conn.execute(
+        "UPDATE user_state SET away_until = datetime('now', ?) WHERE session = ?",
+        (f"+{minutes} minutes", session),
+    )
+    conn.commit()
+
+
+def is_away(session):
+    row = conn.execute(
+        "SELECT away_until > datetime('now') FROM user_state WHERE session = ?",
+        (session,),
+    ).fetchone()
+
     return bool(row and row[0])
 
 
