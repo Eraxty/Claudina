@@ -26,11 +26,11 @@ load_dotenv()
 USERNAME = os.environ.get("INSTA_USERNAME", "")
 PASSWORD = os.environ.get("INSTA_PASSWORD", "")
 
-SESSION_FILE = os.path.join(os.path.dirname(__file__), "insta_session.json")
-STATE_FILE = os.path.join(os.path.dirname(__file__), "insta_state.json")
-SELFIES_DIR = os.path.join(os.path.dirname(__file__), "selfies")
-SELFIE_SCRIPT = os.path.join(os.path.dirname(__file__), "selfie.py")
-SELFIE_PYTHON = os.path.join(os.path.dirname(__file__), "selfie-venv", "bin", "python")
+SESSION_FILE = "insta_session.json"
+STATE_FILE = "insta_state.json"
+SELFIES_DIR = "selfies"
+SELFIE_SCRIPT = "selfie.py"
+SELFIE_PYTHON = os.path.join("selfie-venv", "bin", "python")
 
 
 class InstaClient(Client):

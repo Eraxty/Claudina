@@ -4,7 +4,7 @@ A girl who lives in your Instagram DMs 😭
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org) [![Ollama](https://img.shields.io/badge/local%20model-ollama-white.svg)](https://ollama.com)
 
-[Features](#features) • [How to use](#how-to-use) • [Requirements](#requirements) • [Setup](#setup) • [Hosting](#hosting) • [Docker](#docker) • [Config](#config) • [Limitations](#limitations) • [Credits](#credits)
+[Features](#features) • [How to use](#how-to-use) • [Requirements](#requirements) • [Setup](#setup) • [Hosting](#hosting) • [Docker](#docker) • [Binary](#binary) • [Config](#config) • [Limitations](#limitations) • [Credits](#credits)
 
 ---
 
@@ -167,6 +167,22 @@ Her memories, chats and Instagram login stay in `backend/` on your PC, so nothin
 To chat with her in the terminal instead of Instagram, run `docker compose run --rm claudina python main.py`.
 
 Pics don't work in Docker yet, since the pic model needs an NVIDIA GPU setup. Everything else does.
+
+## Binary
+
+There's a Linux binary on the [Releases](https://github.com/Eraxty/Claudina/releases) page if you don't wanna deal with Python.
+
+1. Download `claudina` and `.env.example` into the same folder.
+2. Rename `.env.example` to `.env` and fill it in (Groq key, her Instagram login, who she is).
+3. Run her:
+   ```
+   chmod +x claudina
+   ./claudina
+   ```
+
+Her memories, chats and Instagram login get saved in that folder. You still need [ffmpeg](https://ffmpeg.org) for voice notes, and [Ollama](https://ollama.com) with `gemma3:4b` if you want a backup for when Groq is down. Her local voice and pics aren't in the binary, so voice notes only work through Groq.
+
+To build it yourself, run `./build.sh` and it ends up in `dist/claudina`.
 
 ## Config
 

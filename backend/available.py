@@ -28,7 +28,7 @@ WEEKEND = [
     (19, 24, "chilling at home", True),
 ]
 
-OFFSET_FILE = os.path.join(os.path.dirname(__file__), "clock_offset.json")
+OFFSET_FILE = "clock_offset.json"
 
 SPONTANEOUS = ["napping", "in the shower", "on a call with her mom", "out getting food"]
 
