@@ -66,8 +66,12 @@ if [ ! -f "$BACKEND/.env" ]; then
   read -rp "(enter for psych student in New York): " HER_LIFE
   HER_LIFE="${HER_LIFE:-second year psych student in New York who lives in a dorm with her roommate Maya}"
 
-  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\nHER_NAME="%s"\nHER_AGE=%s\nHER_LIFE="%s"\nEXTRA_MODE=0\n' \
-    "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" "${HER_NAME//\"/}" "$HER_AGE" "${HER_LIFE//\"/}" > "$BACKEND/.env"
+  echo "her timezone, like America/Chicago, Europe/London or Asia/Kolkata"
+  read -rp "(enter for New York): " HER_TIMEZONE
+  HER_TIMEZONE="${HER_TIMEZONE:-America/New_York}"
+
+  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\nHER_NAME="%s"\nHER_AGE=%s\nHER_LIFE="%s"\nHER_TIMEZONE=%s\nEXTRA_MODE=0\n' \
+    "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" "${HER_NAME//\"/}" "$HER_AGE" "${HER_LIFE//\"/}" "$HER_TIMEZONE" > "$BACKEND/.env"
   chmod 600 "$BACKEND/.env"
   rm -f "$BACKEND/insta_session.json" "$BACKEND/insta_state.json"
 

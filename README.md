@@ -4,7 +4,7 @@ A girl who lives in your Instagram DMs 😭
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org) [![Ollama](https://img.shields.io/badge/local%20model-ollama-white.svg)](https://ollama.com)
 
-[Features](#features) • [How to use](#how-to-use) • [Requirements](#requirements) • [Setup](#setup) • [Hosting](#hosting) • [Config](#config) • [Limitations](#limitations) • [Credits](#credits)
+[Features](#features) • [How to use](#how-to-use) • [Requirements](#requirements) • [Setup](#setup) • [Hosting](#hosting) • [Docker](#docker) • [Config](#config) • [Limitations](#limitations) • [Credits](#credits)
 
 ---
 
@@ -101,6 +101,7 @@ The first time, it asks you a few things:
 4. **her name**: press enter to keep Claudina
 5. **her age**: has to be 18 or older, press enter for 20
 6. **what she does and where she lives**: like `nurse in Chicago who lives alone with her cat`, press enter to keep the psych student in New York
+7. **her timezone**: like `America/Chicago` or `Europe/London`, so she sleeps and wakes up at the right time, press enter for New York
 
 Then it downloads and installs everything, which takes a while the first time. When you see `claudina is up on instagram as @username`, she's online.
 
@@ -139,6 +140,34 @@ tmux new -s claudina
 ./start.sh
 ```
 
+## Docker
+
+If you'd rather not install Python and Ollama yourself, run her in Docker. You only need [Docker](https://docs.docker.com/get-docker/) installed.
+
+1. Copy the example settings and fill them in (Groq key, her Instagram login, who she is):
+   ```
+   cp backend/.env.example backend/.env
+   ```
+2. Start her:
+   ```
+   docker compose up -d
+   ```
+   The first time it builds everything and downloads the backup model, which takes a while.
+3. Watch what she's doing:
+   ```
+   docker compose logs -f claudina
+   ```
+4. Stop her:
+   ```
+   docker compose down
+   ```
+
+Her memories, chats and Instagram login stay in `backend/` on your PC, so nothing is lost when you stop or rebuild her. If Instagram flags her account she stops and stays stopped, so check the logs if she goes quiet.
+
+To chat with her in the terminal instead of Instagram, run `docker compose run --rm claudina python main.py`.
+
+Pics don't work in Docker yet, since the pic model needs an NVIDIA GPU setup. Everything else does.
+
 ## Config
 
 Everything goes in `backend/.env`:
@@ -151,6 +180,7 @@ Everything goes in `backend/.env`:
 | `HER_NAME` | Her name, `Claudina` by default |
 | `HER_AGE` | Her age, has to be 18 or older, `20` by default |
 | `HER_LIFE` | What she does and where she lives, like `nurse in Chicago who lives alone with her cat` |
+| `HER_TIMEZONE` | Where her clock is, like `America/Chicago` or `Europe/London`, `America/New_York` by default ([full list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)) |
 | `OLLAMA_MODEL` | Backup model when Groq fails, `gemma3:4b` by default |
 | `GROQ_MODEL` | Groq model she uses, `qwen/qwen3.8-27b` by default |
 
