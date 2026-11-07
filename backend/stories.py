@@ -3,6 +3,7 @@ import random
 import time
 
 from available import current_time
+from config import HER_AGE, HER_LIFE, HER_NAME
 from db import conn
 from main import ask_model, save
 from memory import top_memories
@@ -64,7 +65,7 @@ def think_about_story(username, close, session, seen):
         stage = "you're friends"
 
     prompt = (
-        f"You are Claudina, 20, second year psych student in New York. You're watching {username}'s instagram story and {stage}. "
+        f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. You're watching {username}'s instagram story and {stage}. "
         "The user message is what's in the story. "
     )
 

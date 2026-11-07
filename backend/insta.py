@@ -13,7 +13,7 @@ from instagrapi.exceptions import AccountSuspended, ChallengeRequired, FeedbackR
 from ollama import generate, ps
 
 from available import get_status
-from config import OFF_LIMITS
+from config import HER_AGE, HER_LIFE, HER_NAME, OFF_LIMITS
 from day import her_day
 from main import EXTRA_MODE, ask_model, respond, save, crossed_line_recently
 from plans import due_plan
@@ -155,7 +155,7 @@ def sent_at(message):
 
 def send_pic(cl, thread_id, session, doing, asked, alt = False):
         prompt = (
-            f"You are Claudina, 20, psych student in New York. Someone you text asked for a pic and right now you are {doing}. "
+            f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. Someone you text asked for a pic and right now you are {doing}. "
             "Pick what you'd actually snap on your phone rn like a normal girl would, it doesn't have to be your face. "
             "Like a mirror pic of your outfit, your nails, your iced coffee, what you're cooking, your desk while studying, the view outside, or a selfie. "
             "It has to match what you're doing and what they asked for. Keep it casual and fully clothed. "
@@ -212,7 +212,7 @@ def post_story(cl):
         return
 
     prompt = (
-        f"You are Claudina, 20, psych student in New York. This just happened to you: {today[-1]}. "
+        f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. This just happened to you: {today[-1]}. "
         "You're posting it on your instagram story. Pick what the photo shows like a normal girl would post it, "
         "like your iced coffee, your notes, a mirror pic, your food, the view or a selfie. Keep it casual and fully clothed. "
         'Reply ONLY as JSON: {"pic": "<what the photo shows>", "face": <true if your face is in it, otherwise false>}'

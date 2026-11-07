@@ -1,4 +1,20 @@
+import os
 import re
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+HER_NAME = os.environ.get("HER_NAME") or "Claudina"
+HER_LIFE = os.environ.get("HER_LIFE") or "second year psych student in New York who lives in a dorm with her roommate Maya"
+
+try:
+    HER_AGE = int(os.environ.get("HER_AGE") or "20")
+except ValueError:
+    raise SystemExit("HER_AGE in backend/.env has to be a number")
+
+if HER_AGE < 18:
+    raise SystemExit("HER_AGE in backend/.env has to be 18 or older")
 
 
 UNDERAGE = re.compile(

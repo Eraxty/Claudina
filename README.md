@@ -1,94 +1,171 @@
 # Claudina
 
-A local AI girlfriend that lives in your browser
+A girl who lives in your Instagram DMs 😭
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org) [![Next.js](https://img.shields.io/badge/next.js-16-black.svg)](https://nextjs.org) [![Ollama](https://img.shields.io/badge/local%20model-ollama-white.svg)](https://ollama.com)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org) [![Ollama](https://img.shields.io/badge/local%20model-ollama-white.svg)](https://ollama.com)
 
-[Features](#features) • [Install](#installation) • [Usage](#usage) • [How it works](#how-it-works) • [Chat backup](#backing-up-the-chat) • [Credits](#credits)
+[Features](#features) • [How to use](#how-to-use) • [Requirements](#requirements) • [Setup](#setup) • [Hosting](#hosting) • [Config](#config) • [Limitations](#limitations) • [Credits](#credits)
 
 ---
 
-## Why Claudina
+![Claudina double texting on Instagram](image.png)
 
-In today's world of loneliness,all a man wants is a companion who is a star in his galaxy But in nowadays finding the right companion just became a lot harder.To solve this problem we have created an AI which is exactly your type so you don't have to worry about finding your perfect match.Although she can be a handful sometimes but you will find her pretty sweet.
+## Why Claudina
+soo uh i couldnt find a girlfriend so i made one 🥀🥀
+this project was started during a hackathon october fest and the theme in that hackathon was technology that brings joy and 
+my dumbahh though ai gf brings joy so i made this 🥀
 
 ## Features
+- Lives in her own Instagram account and answers DM's (your girl would never)
+- Texts like a real person: short, lowercase, lazy, multiple bubbles
+- doesnt respond instantly for realism purposes 🥀
+- Reacts with emojis and sometimes just reacts instead of answering
+- Double texts ("hellooo??") if you go ded in the middle of a chat
+- Ends chats herself ("gtg gn", "ok im sleeping") and then sleeps and doesnt answers (she lives in NYC)
+- Texts you first if you haven't talked to her in a while 
+- she can watch and send reels and react to them 
+- she can post and like stories
+- she can send and hear voice notes 
 
-- Chat UI that actually feels like textng,bubbles and resposive texts
-- Replies come through a model running through Ollama,` no cloud is involved
-- The conversations will be saved in your browser,you close the tab and it will still be there when you come back
+### Relationships
+- Everyone starts as a stranger and you have to get closer to her for dating (breaking the ice barrier)
+- She can like more than one person (shocker)
+- Gets annoyed if you're rude, dry or pushy 
+- Leaves people on read if they mess with her
 
-## use it here
-https://eraxty.github.io/Claudina/
+### Memory
+- Remembers what you tell her about yourself
+- doesn't contradict herself
+- Remembers your plans (exam, interview) etc whatever you told her
+- Notices when you've been gone 
+
+### Her own life
+- Has a weekday and weekend schedule: classes, sleeping, going out
+- Doesn't check her phone while she's asleep
+- Has her own day and mood, and only brings it up when it fits
+
+### Safety
+- Anyone who says they're under 18 gets told they're too young, then ignored bcs she doesnt text minors
 
 
+## How to use
 
-## Installation
+### What is Claudina
 
-- Python 3.10+
-- Node.js
+Claudina isn't a girl, it's the code for a girl's brain. You run it on your PC, give it an Instagram account, and it turns that account into a girl who texts people like a normal 20 year old college girl in NYC. Anyone can DM her, and everyone starts out as a stranger. The thinking runs on Groq, which is free you just need to signup !!
+
+### Just wanna try her?
+
+[@claudi.nah](https://instagram.com/claudi.nah) is the Instagram account I run Claudina on. If you don't wanna set anything up, just DM her. Mind you she runs locally on my PC, so she might be down sometimes.
+
+She's the default version: Claudina, 20, a second year psych student in New York who lives in a dorm with her roommate Maya. She's into Frank Ocean, SZA, Gilmore Girls and way too much iced coffee.
+
+### Step 1: Make her an Instagram account
+
+1. Make a new Instagram account for her on your phone. Don't use your own account, she takes it over.
+2. Give her a name, a bio and a profile pic. Use an AI made pic or smthin 
+3. Don't turn on two factor login, she can't log in .
+4. TO let everyone message her, go to **Settings then Messages and story replies then Message controls** and set everyone (followers and others on Instagram) i think its on by default sometimes soo just make sure 
+5. Remember the username and password
+
+### Step 2: Get a free Groq API key
+
+1. Go to [console.groq.com](https://console.groq.com) and sign up.
+2. Open **API Keys** and click **Create API Key**.
+3. Copy the key (it starts with `gsk_`) and save it cuz Groq only shows it once.
+
+### Step 3: Install stuff on your PC
+
+She runs on a PC, not your phone. You need Linux or macOS (on Windows, use WSL), plus
+
+- [Git](https://git-scm.com)
+- Python 3.10, 3.11 or 3.12
+- [Ollama](https://ollama.com)
+- [ffmpeg](https://ffmpeg.org)
+
+### Step 4: Download and start her
+
+Open a terminal and run:
+
 ```
 git clone https://github.com/Eraxty/Claudina
 cd Claudina
-
-backend:
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-frontend:
-cd ../reactive-ai-gf
-npm install
+./start.sh
 ```
 
+The first time, it asks you a few things:
 
-## Usage
+1. **groq api key**: paste the key from step 2
+2. **her instagram username**: type it without the @
+3. **her instagram password**: it won't show while you type, that's normal
+4. **her name**: press enter to keep Claudina
+5. **her age**: has to be 18 or older, press enter for 20
+6. **what she does and where she lives**: like `nurse in Chicago who lives alone with her cat`, press enter to keep the psych student in New York
 
-Run the two halves in separate terminals:
+Then it downloads and installs everything, which takes a while the first time. When you see `claudina is up on instagram as @username`, she's online.
+
+### Step 5: Text her
+
+DM her from your own Instagram account. Your first message goes to her message requests and she accepts it herself. She's a stranger at first, so she takes a few minutes to reply, keep talking to her and she gets closer and start dating her smh. 
+
+run `./start.sh` from the `Claudina` folder 
+
+## Requirements
+
+- [Ollama](https://ollama.com), the backup model when Groq is down
+- A free Groq API key from [console.groq.com/keys](https://console.groq.com/keys)
+- An Instagram account for her
+
+## Setup
 
 ```
-# terminal 1, from backend/
-source .venv/bin/activate
-python main.py
-
-# terminal 2,from reactive-ai-gf/
-npm run dev
+git clone https://github.com/Eraxty/Claudina
+cd Claudina
+./start.sh
 ```
 
-Open `http://localhost:3000`,type something,hit send.
+The first run asks for your Groq key and her Instagram login, saves them to `backend/.env`, downloads the models and installs everything. After that, `./start.sh` just starts her.
 
-### Chat history
+If you leave the Instagram username empty, you chat with her in the terminal instead.
 
-Every message keeps getting saved to your browser's localStorage under the claudina chat key.Refresh,close the tab,reboot and the conversation is still there.If you clear your browser data the chat starts fresh,which is also the reset button if she remembers something you'd rather forget.
+> Claudina uses [instagrapi](https://github.com/subzeroid/instagrapi), which isn't official. Instagram can flag or ban her account. If that happens she stops and logs tell you to log in on your phone and do what Instagram asks ☹️☹️☹️☹️☹️
 
-### Making her yours
+## Hosting
 
-The whole personality is one string in backend/main.py.The backend forces the model to reply as JSON (`{"reply": "..."}`),so the frontend only ever sees the clean reply text, even when the model starts rambling around it.
+She runs on your machine so she's only online while `./start.sh` is running, to keep her up all the time run her on a computer always online or server that stays on, or  inside `tmux` or `screen` so she keeps going after you close the terminal:
 
-## How it works
+```
+tmux new -s claudina
+./start.sh
+```
 
-Short version:
+## Config
 
-1. You type a message in the browser,it shows up as your bubble
-2. The backend sends the conversation to Ollama with a system prompt and asks for a JSON reply
-3. The reply is parsed and lands back in the chat as her bubble
+Everything goes in `backend/.env`:
 
-The frontend never talks to the model directly,it only knows about the backend.The backend never talks to the internet,it only knows about Ollama.
+| Setting | What it does |
+|---|---|
+| `GROQ_API_KEY` | Her main brain, plus voice notes and hearing |
+| `INSTA_USERNAME` | Her Instagram username. Leave it empty to chat in the terminal |
+| `INSTA_PASSWORD` | Her Instagram password |
+| `HER_NAME` | Her name, `Claudina` by default |
+| `HER_AGE` | Her age, has to be 18 or older, `20` by default |
+| `HER_LIFE` | What she does and where she lives, like `nurse in Chicago who lives alone with her cat` |
+| `OLLAMA_MODEL` | Backup model when Groq fails, `gemma3:4b` by default |
+| `GROQ_MODEL` | Groq model she uses, `qwen/qwen3.8-27b` by default |
 
-## Backing up the chat
+Her personality is the prompt in `respond()` in `backend/main.py`.
 
-There's no database here,chats live in your browser's local storage.If you want to keep one,open devtools,go to Application>Local Storage,and copy the claudina-chat key somewhere safe.Pasting it back restores the conversation.
+## Limitations
 
-## Limitation
-
-- Replies are only as fast as your device,since the model runs locally.Good on a GPU,slow on CPU.
-- Ollama needs to be running before you start the backend,otherwise the first message just hangs.
-- One conversation for now,no personas,no memory beyond the current chat.Voice replies are planned,the ElevenLabs package is already sitting in package.json waiting.
+- No group chat support yet. If someone adds her to a gc she just ignores it, but DMs still work.
+- Her daily schedule is still a college student's (classes, going out), even if you change `HER_LIFE`.
+- Her pic face is made once. If you change her age after pics are set up, delete `backend/face.png` so she makes a new one.
 
 ## Credits
 
-Built by [Eraxty](https://github.com/Eraxty) and [Xorim](https://github.com/Xorim).The frontend was bootstrapped with create next app,styled with Tailwind,icons from lucide.Everything else is mine.
+Built by [Eraxty](https://github.com/Eraxty) 
+and [Xorim](https://github.com/Xorim).
 
 ## License
 

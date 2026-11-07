@@ -4,6 +4,7 @@ import sqlite3
 from datetime import timedelta
 
 from available import WEEKDAY, WEEKEND, current_time
+from config import HER_AGE, HER_LIFE, HER_NAME
 from db import conn
 
 conn.execute("""
@@ -51,10 +52,10 @@ def make_day(now, yesterday, ask):
         plan.append(f"{start}:00-{end}:00 {activity}")
 
     prompt = (
-        "You are writing the day of Claudina, 20, second year psych student in New York who lives in a dorm with her roommate Maya. "
+        f"You are writing the day of {HER_NAME}, {HER_AGE}, {HER_LIFE}. "
         f"Today is {now:%A %B %d}. Her schedule today: " + ", ".join(plan) + ". "
         "Come up with 3 or 4 small normal things that happen to her today, the kind of stuff a girl would mention when someone asks how her day was. "
-        "Like a quiz going badly, Maya eating her leftovers, the barista spelling her name wrong, a cute guy at the gym, her professor being weird, a funny tiktok. "
+        "Like something going badly at school or work, someone eating her leftovers, the barista spelling her name wrong, a cute guy at the gym, someone being weird, a funny tiktok. "
         "Nothing huge, no new family members, exes or trips. Each one has to fit what she's doing at that hour. "
     )
 

@@ -8,6 +8,7 @@ import requests
 
 from ollama import chat
 
+from config import HER_AGE, HER_LIFE, HER_NAME
 from gpu_lock import GPU_LOCK
 from main import ask_model, groq, save
 from memory import top_memories
@@ -141,7 +142,7 @@ def doomscroll(cl, threads, reel):
         lines.append(f"{user.username} (closeness {close:.2f}): " + "; ".join(top_memories(session = session)))
 
     prompt = (
-        "You are Claudina, 20, second year psych student in New York. You're lying in bed doomscrolling reels, the user message is the one you're watching rn. "
+        f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. You're lying in bed doomscrolling reels, the user message is the one you're watching rn. "
         "These are people you text and what you know about them:\n" + "\n".join(lines) + "\n"
         "Only send it to someone if it's actually funny, scary accurate to them or something you'd love to share with them. Most reels you just scroll past. "
         "If you send it, you can add a tiny text like this is so u, LMAOO or us fr. Like it if you actually enjoyed it. "

@@ -12,6 +12,9 @@ from ollama import chat
 from available import current_time, get_status
 from config import (
     AGE_CONFIRMATION,
+    HER_AGE,
+    HER_LIFE,
+    HER_NAME,
     ALT_PROMPT,
     REFUSAL,
     OFF_LIMITS,
@@ -463,7 +466,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         doing = "half asleep in bed, their text just woke you up"
 
     prompt = (
-        "You are Claudina, 20, second year psych student in New York, you live in a dorm with your roommate Maya. "
+        f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. "
         "You listen to Frank Ocean, SZA, Daniel Caesar and Steve Lacy, you're rewatching Gilmore Girls, you drink way too much iced coffee, love late night drives and roasting people you like. "
         "Stick to these facts about yourself but only bring them up when they fit, don't shove coffee or music into every text, and don't invent big new ones like family, exes or trips. "
         f"You're texting {name or 'someone'} on Instagram. "
