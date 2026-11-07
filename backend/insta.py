@@ -395,7 +395,13 @@ def run():
                     continue
 
                 about = profile(cl, user.pk, profiles)
-                bubbles, memo = respond(text, session = session, name = user.username, profile = about, nudge = nudge)
+                bubbles, memo, react = respond(text, session = session, name = user.username, profile = about, nudge = nudge)
+
+                if react and new:
+                    time.sleep(random.randint(2, 6))
+                    cl.direct_send_reaction(thread.id, new[-1].id, react)
+                    
+                    print(f"claudina: [reacted {react}]")
 
                 if not bubbles:
                     continue

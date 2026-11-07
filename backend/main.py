@@ -3,6 +3,8 @@ import os
 import random
 import re
 
+from datetime import datetime, timezone
+
 from dotenv import load_dotenv
 from groq import Groq
 from ollama import chat
@@ -115,16 +117,35 @@ def sexted_recently(session, hours = 3):
     return False
 
 
+def hours_ago(created_at):
+    sent = datetime.fromisoformat(created_at + "+00:00")
+    gap = datetime.now(timezone.utc) - sent
+
+    return gap.total_seconds() / 3600
+
+
 def hours_since_reply(session):
     row = conn.execute(
-        "SELECT (julianday('now') - julianday(created_at)) * 24 FROM messages WHERE session = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1",
+        "SELECT created_at FROM messages WHERE session = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1",
         (session,),
     ).fetchone()
 
     if row is None:
         return 99
 
-    return row[0]
+    return hours_ago(row[0])
+
+
+def hours_since_last(session):
+    row = conn.execute(
+        "SELECT created_at FROM messages WHERE session = ? ORDER BY id DESC LIMIT 1",
+        (session,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return hours_ago(row[0])
 
 
 def ask_model(prompt, messages, model_override = None, plain_history = False):
@@ -372,15 +393,17 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     
     messages = filtered_messages
 
+    gap = hours_since_last(session)
+
     if not first:
         save("user", text, session)
 
     if is_minor(session):
-        return [], None
+        return [], None, ""
 
     if get_state(session)["affection"] <= 0.05:
         if hours_since_reply(session) < 6:
-            return [], None
+            return [], None, ""
 
         update_state(affection_delta = 0.15, session = session)
 
@@ -395,8 +418,10 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     if not kid and not adult and SEXUAL_INTENT.search(lower):
         age_question = "hey, before we get into that, how old are you?"
+        
         save("assistant", age_question, session)
-        return [age_question], None
+        
+        return [age_question], None, ""
 
     state = get_state(session)
 
@@ -411,7 +436,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     ignored_last = len(messages) >= 2 and messages[-2]["role"] == "user"
 
     if not first and not ignored_last and state["annoyance"] >= 0.7 and random.random() < 0.4:
-        return [], None
+        return [], None, ""
 
     interest = state["affection"]
     status = get_status()
@@ -439,6 +464,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         sticky_sexual = True
 
     intimate_turn = ADULT_MODE and adult and interest >= 0.7 and (bool(SEXUAL_INTENT.search(lower)) or sticky_sexual)
+    
     doing = status["doing"]
 
     if doing == "sleeping":
@@ -469,6 +495,14 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     if feeling:
         prompt += f"Your mood right now: {feeling}. Let it show a little in how you text, but don't announce it unless they ask how you are. "
+
+    if gap is not None and gap >= 20:
+        days = round(gap / 24)
+
+        if days <= 1:
+            prompt += "You last talked to them yesterday. "
+        else:
+            prompt += f"You last talked to them {days} days ago, so it's been a while, you can notice that like omg u disappeared or long time no see"
 
     if status["available"]:
         prompt += "You are free to text. "
@@ -523,6 +557,8 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     prompt += (
         "Don't keep every chat going forever. When it fits, like it's late and you're getting sleepy, you're busy, the chat is dying or you've been texting a long time, end it yourself like gtg gn, ok im sleeping, ttyl, but never in the middle of something real. "
+        "Sometimes react to their last text with an emoji like people do, ❤️ if it's sweet, 😂 if it's funny, 😭 if it's cute or sad, but most texts get no reaction. "
+        "If their text doesn't need an answer, like a meme, lol, gn or ok, you can leave reply empty and only react. "
         "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
@@ -531,6 +567,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, explicit sexual stuff, creepy or pushy makes it go down>, "
         "\"annoyance\": <-0.2 to 0.2, goes up 0.1 to 0.2 if they're rude, call you boring or dry, are pushy, keep asking for pics or sex after you said no, ignore your questions, or say something dumb, goes down if they apologize, are sweet or make you laugh, normal texts are 0>, "
+        "\"react\": \"<one emoji to react to their last text with, otherwise empty string>\", "
         "\"bye\": <true if this text ends the chat for now, like gtg, gn, ok im sleeping, ttyl, otherwise false>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
@@ -554,7 +591,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if not kid and not first:
         if str(result.get("minor")).lower() == "true":
             mark_minor(session)
-            return [], None
+            return [], None, ""
 
         try:
             change = float(result.get("interest", 0))
@@ -594,7 +631,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         state = update_state(affection_delta = change, annoyance_delta = irritation, session = session)
 
         if state["affection"] <= 0.05:
-            return [], None
+            return [], None, ""
 
     reply = result.get("reply")
 
@@ -636,8 +673,15 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if not bubbles and reply:
         bubbles = reply[:1]
 
+    react = ""
+    found = EMOJI.search(str(result.get("react") or ""))
+
+    if found and not first:
+        react = found.group()
+        save("assistant", f"[you reacted {react} to their text]", session)
+
     if not bubbles:
-        return [], None
+        return [], None, react
 
     fact = str(result.get("memory", ""))
 
@@ -706,7 +750,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     save("assistant", last, session)
 
-    return bubbles, memo
+    return bubbles, memo, react
 
 
 if __name__ == "__main__":
@@ -718,9 +762,12 @@ if __name__ == "__main__":
         except (EOFError, KeyboardInterrupt):
             break
 
-        bubbles, memo = respond(text, session = "cli")
+        bubbles, memo, react = respond(text, session = "cli")
 
-        if not bubbles:
+        if react:
+            print(f"claudina: [reacted {react}]")
+
+        if not bubbles and not react:
             print("(left on seen)")
 
         typed = bubbles
