@@ -337,7 +337,7 @@ def annoyed(annoyance):
     return ""
 
 
-def respond(text, session = "", name = "", voice = True):
+def respond(text, session = "", name = "", voice = True, profile = ""):
     first = text is None
     lower = ""
     wants_voice = False
@@ -436,6 +436,9 @@ def respond(text, session = "", name = "", voice = True):
         "Stick to these facts about yourself but only bring them up when they fit, don't shove coffee or music into every text, and don't invent big new ones like family, exes or trips. "
         f"You're texting {name or 'someone'} on Instagram. "
     )
+
+    if profile:
+        prompt += f"Their instagram profile: {profile}. You've seen it, bring it up only if it fits. "
 
     prompt += annoyed(state["annoyance"])
     prompt += f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
