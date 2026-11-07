@@ -1,6 +1,8 @@
 import os
 import re
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,6 +17,13 @@ except ValueError:
 
 if HER_AGE < 18:
     raise SystemExit("HER_AGE in backend/.env has to be 18 or older")
+
+HER_TIMEZONE = os.environ.get("HER_TIMEZONE") or "America/New_York"
+
+try:
+    ZoneInfo(HER_TIMEZONE)
+except (ZoneInfoNotFoundError, ValueError):
+    raise SystemExit(f"HER_TIMEZONE in backend/.env isn't a real timezone, use one like America/New_York or Europe/London")
 
 
 UNDERAGE = re.compile(

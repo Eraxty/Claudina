@@ -1,0 +1,39 @@
+services:
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  models:
+    image: ollama/ollama
+    depends_on:
+      - ollama
+    env_file: backend/.env
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint:
+      - sh
+      - -c
+      - |
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        ollama pull $${OLLAMA_MODEL:-gemma3:4b}
+        if [ "$$ADULT_MODE" = "1" ]; then
+          ollama pull $${CLAUDINA_INTIMATE_MODEL:-huihui_ai/qwen3-abliterated:8b}
+        fi
+
+  claudina:
+    build: .
+    depends_on:
+      models:
+        condition: service_completed_successfully
+    volumes:
+      - ./backend:/app
+      - huggingface:/root/.cache/huggingface
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    restart: on-failure
+
+volumes:
+  ollama:
+  huggingface:

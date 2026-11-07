@@ -5,6 +5,8 @@ import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from config import HER_TIMEZONE
+
 
 WEEKDAY = [
     (0, 1, "in bed on her phone", True),
@@ -49,8 +51,7 @@ def skip_time(hours = 0):
 
 
 def current_time():
-    # she lives in new york so follow NY time
-    return datetime.now(ZoneInfo("America/New_York")).replace(tzinfo = None) + timedelta(hours = _load_offset())
+    return datetime.now(ZoneInfo(HER_TIMEZONE)).replace(tzinfo = None) + timedelta(hours = _load_offset())
 
 
 def get_status(now = None):
