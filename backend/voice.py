@@ -11,7 +11,7 @@ import soundfile as sf
 warnings.filterwarnings("ignore")
 os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 
-MEMOS_DIR = os.path.join(os.path.dirname(__file__), "voice_memos")
+MEMOS_DIR = "voice_memos"
 
 GROQ_VOICE_MODEL = os.environ.get("GROQ_VOICE_MODEL", "canopylabs/orpheus-v1-english")
 GROQ_VOICE = os.environ.get("GROQ_VOICE", "autumn")

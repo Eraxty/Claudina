@@ -16,3 +16,6 @@ face.png
 insta_state.json
 clock_offset.json
 backend/memory.txt
+build-venv/
+build/
+dist/

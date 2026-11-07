@@ -1,4 +1,3 @@
-import os
 
 from db import conn
 
@@ -46,6 +45,6 @@ def _dump_txt():
         "SELECT content, importance, created_at, session FROM memories ORDER BY id DESC"
     ).fetchall()
 
-    with open(os.path.join(os.path.dirname(__file__), "memory.txt"), "w") as f:
+    with open("memory.txt", "w") as f:
         for content, importance, created, session in rows:
             f.write(f"{importance:.1f} | {created} | [{session or 'owner'}] {content}\n")
