@@ -14,7 +14,7 @@ FACE_FILE = os.path.join(os.path.dirname(__file__), "face.png")
 
 MODEL = "SG161222/RealVisXL_V5.0_Lightning"
 
-HER = "20 year old woman, shoulder length wavy honey brown hair, green eyes, light freckles, soft round face"
+HER = os.environ.get("HER_AGE", "20") + " year old woman, shoulder length wavy honey brown hair, green eyes, light freckles, soft round face"
 
 NEGATIVE = (
     "cartoon, anime, 3d render, painting, deformed, extra fingers, bad hands, watermark, text, logo"

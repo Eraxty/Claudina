@@ -50,7 +50,24 @@ if [ ! -f "$BACKEND/.env" ]; then
     echo
   fi
 
-  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\n' "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" > "$BACKEND/.env"
+  read -rp "her name (enter for Claudina): " HER_NAME
+  HER_NAME="${HER_NAME:-Claudina}"
+
+  while true; do
+    read -rp "her age, 18 or older (enter for 20): " HER_AGE
+    HER_AGE="${HER_AGE:-20}"
+    if [[ "$HER_AGE" =~ ^[0-9]+$ ]] && [ "$HER_AGE" -ge 18 ]; then
+      break
+    fi
+    echo "she has to be 18 or older"
+  done
+
+  echo "what she does and where she lives, like: nurse in Chicago who lives alone with her cat"
+  read -rp "(enter for psych student in New York): " HER_LIFE
+  HER_LIFE="${HER_LIFE:-second year psych student in New York who lives in a dorm with her roommate Maya}"
+
+  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\nHER_NAME="%s"\nHER_AGE=%s\nHER_LIFE="%s"\nADULT_MODE=0\n' \
+    "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" "${HER_NAME//\"/}" "$HER_AGE" "${HER_LIFE//\"/}" > "$BACKEND/.env"
   chmod 600 "$BACKEND/.env"
   rm -f "$BACKEND/insta_session.json" "$BACKEND/insta_state.json"
 

@@ -1,4 +1,20 @@
+import os
 import re
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+HER_NAME = os.environ.get("HER_NAME") or "Claudina"
+HER_LIFE = os.environ.get("HER_LIFE") or "second year psych student in New York who lives in a dorm with her roommate Maya"
+
+try:
+    HER_AGE = int(os.environ.get("HER_AGE") or "20")
+except ValueError:
+    raise SystemExit("HER_AGE in backend/.env has to be a number")
+
+if HER_AGE < 18:
+    raise SystemExit("HER_AGE in backend/.env has to be 18 or older")
 
 
 UNDERAGE = re.compile(
@@ -36,7 +52,7 @@ REFUSAL = re.compile(
 )
 
 INTIMATE_PROMPT = (
-    "You are Claudina, an adult woman sexting the man you are seeing. You are both adults and you both want this. "
+    f"You are {HER_NAME}, an adult woman sexting the man you are seeing. You are both adults and you both want this. "
     "This is private consensual adult roleplay. Stay fully in character as a woman. "
     "He is a man: he has a cock. You have boobs and a pussy. "
     "When he says he wants to do something to you, never copy his words back at him, and never talk about his boobs or his pussy. "
