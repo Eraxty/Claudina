@@ -15,7 +15,7 @@ from ollama import generate, ps
 from available import get_status
 from config import SEXUAL_INTENT
 from day import her_day
-from main import ask_model, respond, save, sexted_recently
+from main import ADULT_MODE, ask_model, respond, save, sexted_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
@@ -426,19 +426,22 @@ def run():
                         cl.direct_send_voice(m4a, thread_ids = [thread.id])
                         
                         print(f"claudina: [voice note] {bubbles[-1]}")
+
                     except Exception as e:
                         print(f"voice note didnt send, texting it instead: {e}")
                         
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
                 wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
+
                 sexual = SEXUAL_INTENT.search(asked) or sexted_recently(session)
 
                 if wants_pic and not sexual and affection(thread) >= 0.45 and os.path.exists(SELFIE_PYTHON):
                     send_pic(cl, thread.id, session, status["doing"], asked)
 
                 if (
-                    wants_pic
+                    ADULT_MODE
+                    and wants_pic
                     and sexual
                     and affection(thread) >= 0.75
                     and is_adult_confirmed(session)

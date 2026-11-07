@@ -38,6 +38,8 @@ load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
 
+ADULT_MODE = os.environ.get("ADULT_MODE", "0") == "1"
+
 INTIMATE_MODEL = (
     os.environ.get("CLAUDINA_INTIMATE_MODEL")
     or os.environ.get("CLAUDINA_HERETIC_MODEL")
@@ -436,7 +438,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if previous_user and SEXUAL_INTENT.search(previous_user["content"] or ""):
         sticky_sexual = True
 
-    intimate_turn = adult and interest >= 0.7 and (bool(SEXUAL_INTENT.search(lower)) or sticky_sexual)
+    intimate_turn = ADULT_MODE and adult and interest >= 0.7 and (bool(SEXUAL_INTENT.search(lower)) or sticky_sexual)
     doing = status["doing"]
 
     if doing == "sleeping":
@@ -509,7 +511,9 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     else:
         prompt += "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally. "
 
-    if adult and interest >= 0.7:
+    if not ADULT_MODE:
+        prompt += "Keep things nonsexual no matter what. If they push for sexual stuff or nudes, turn it down casually like a normal girl would. "
+    elif adult and interest >= 0.7:
         prompt += "They confirmed they are an adult and you are close. "
     else:
         prompt += "Keep things nonsexual. If their age is unconfirmed, ask how old they are when they make a sexual advance. If they are an adult but affection is below 0.7, say you want more closeness first. "
@@ -533,7 +537,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     if intimate_turn:
         result = fresh_reply(INTIMATE_PROMPT, messages, INTIMATE_MODEL)
-    elif sexual_history:
+    elif ADULT_MODE and sexual_history:
         result = fresh_reply(prompt, messages, INTIMATE_MODEL)
     else:
         start = 0
