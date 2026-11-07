@@ -410,7 +410,8 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
 
     interest = state["affection"]
     status = get_status()
-    known = top_memories(session = session)
+    known = top_memories(limit = 50, session = session)
+    mine = top_memories(limit = 50, session = "self")
     today, yesterday, feeling = her_day(ask_model)
     plan = due_plan(session)
 
@@ -472,6 +473,9 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
     if known:
         prompt += "Things you remember about them: " + "; ".join(known) + ". "
 
+    if mine:
+        prompt += "Stuff you already told people about yourself, never contradict it: " + "; ".join(mine) + ". "
+
     if first:
         prompt += "You haven't talked in a while and you're texting them first. Keep it tiny like yoo, wsp, hru, wyd, or bring up something you remember about them or what you're doing. "
 
@@ -504,6 +508,7 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
         "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
         "Reply ONLY as JSON: {\"reply\": [\"<bubble 1>\", \"<bubble 2>\"], "
         "\"memory\": \"<something they actually said about themselves that you didn't know yet, like their name, what they do, what they're into or plans coming up, otherwise empty string>\", "
+        "\"self\": \"<a new detail about your own life you just said in this reply that you'd need to keep straight later, like your class schedule, a pet, a friend's name or where you're from, written like 'i have a cat named mochi', otherwise empty string>\", "
         "\"plan\": \"<something they just said they're going to do or have coming up that you could ask about after, like their job interview or their exam, otherwise empty string>\", "
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, explicit sexual stuff, creepy or pushy makes it go down>, "
@@ -625,6 +630,18 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
             save_memory(fact, session = session)
             break
 
+    about_me = str(result.get("self") or "")
+
+    if intimate_turn:
+        about_me = ""
+
+    said = " ".join(bubbles).lower()
+
+    for w in re.findall(r"[a-z]{4,}", about_me.lower()):
+        if w in said:
+            save_memory(about_me, session = "self")
+            break
+
     upcoming = str(result.get("plan") or "")
 
     if intimate_turn or first:
@@ -636,8 +653,6 @@ def respond(text, session = "", name = "", voice = True, profile = ""):
             break
 
     if plan and not intimate_turn:
-        said = " ".join(bubbles).lower()
-
         for w in re.findall(r"[a-z]{4,}", plan["about"].lower()):
             if w in said:
                 mark_asked(plan["id"])
