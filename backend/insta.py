@@ -12,14 +12,14 @@ from instagrapi import Client
 from instagrapi.exceptions import AccountSuspended, ChallengeRequired, FeedbackRequired, LoginRequired, PleaseWaitFewMinutes
 from ollama import generate, ps
 
-from available import get_status
+from available import current_time, get_status, routine, sleep_hours
 from config import HER_AGE, HER_LIFE, HER_NAME, SEXUAL_INTENT
 from day import her_day
 from main import ADULT_MODE, ask_model, respond, save, sexted_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
-from state import get_state, is_adult_confirmed, is_away, is_minor
+from state import did_routine, get_state, is_adult_confirmed, is_away, is_minor, mark_routine
 
 load_dotenv()
 
@@ -147,6 +147,15 @@ def went_quiet(thread, session):
         return False
 
     return random.random() < interest / 60
+
+
+def quiet_for(thread):
+    if not thread.messages:
+        return timedelta(days = 365)
+
+    last = max(thread.messages, key = sent_at)
+
+    return datetime.now() - last.timestamp
 
 
 def sent_at(message):
@@ -291,13 +300,22 @@ def run():
     feed = []
     profiles = {}
     was_free = False
+    last_doing = ""
 
     print(f"logged in as @{USERNAME}")
 
     while True:
         status = get_status()
 
-        # check msgs in morning if shes sleeping
+        if status["doing"] != last_doing:
+            last_doing = status["doing"]
+
+            if last_doing == "sleeping":
+                bedtime, wake = sleep_hours()
+                print(f"[{current_time():%H:%M} her time] she's asleep till {wake}:00")
+            else:
+                print(f"[{current_time():%H:%M} her time] she's {last_doing}")
+
         if status["doing"] == "sleeping":
             time.sleep(60)
             continue
@@ -320,6 +338,8 @@ def run():
         try:
             threads = cl.direct_threads(amount = 20, thread_message_limit = 10) + cl.direct_pending_inbox(amount = 20)
             threads.sort(key = affection, reverse = True)
+            kind = routine()
+            today = current_time().date().isoformat()
 
             for thread in threads:
                 if thread.is_group or len(thread.users) != 1:
@@ -343,9 +363,14 @@ def run():
                 session = f"insta:{user.pk}"
                 asked = ""
                 nudge = False
+                todo = ""
 
                 if is_away(session):
                     continue
+
+                if kind and affection(thread) >= 0.7 and not is_minor(session) and not thread.pending:
+                    if not did_routine(session, kind, today):
+                        todo = kind
 
                 if new:
                     new.sort(key = sent_at)
@@ -382,11 +407,24 @@ def run():
                     text = "\n".join(lines)
                     print(f"{user.username}: {text}")
 
+                    if todo == "evening":
+                        todo = ""
+
+                elif todo == "morning" or todo == "night":
+                    text = None
+                    print(f"texting {user.username} {todo}")
+
+                elif todo == "evening" and quiet_for(thread) > timedelta(hours = 2) and random.random() < 0.02:
+                    text = None
+                    print(f"checking up on {user.username}")
+
                 elif status["available"] and misses(thread, session):
+                    todo = ""
                     text = None
                     print(f"texting {user.username} first")
 
                 elif status["available"] and went_quiet(thread, session):
+                    todo = ""
                     text = None
                     nudge = True
                     print(f"double texting {user.username}")
@@ -395,7 +433,10 @@ def run():
                     continue
 
                 about = profile(cl, user.pk, profiles)
-                bubbles, memo, react = respond(text, session = session, name = user.username, profile = about, nudge = nudge)
+                bubbles, memo, react = respond(text, session = session, name = user.username, profile = about, nudge = nudge, routine = todo)
+
+                if todo:
+                    mark_routine(session, todo, today)
 
                 if react and new:
                     time.sleep(random.randint(2, 6))

@@ -50,3 +50,31 @@ def get_status(now = None):
             return {"available": available, "doing": activity}
 
     return {"available": True, "doing": "free"}
+
+
+def sleep_hours(now = None):
+    now = now or current_time()
+    schedule = WEEKDAY
+
+    if now.weekday() >= 5:
+        schedule = WEEKEND
+
+    for start, end, activity, available in schedule:
+        if activity == "sleeping":
+            return start, end
+
+
+def routine(now = None):
+    now = now or current_time()
+    bedtime, wake = sleep_hours(now)
+
+    if now.hour == wake:
+        return "morning"
+
+    if now.hour == bedtime - 1:
+        return "night"
+
+    if 19 <= now.hour < 22:
+        return "evening"
+
+    return ""

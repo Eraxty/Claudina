@@ -368,7 +368,7 @@ def annoyed(annoyance):
     return ""
 
 
-def respond(text, session = "", name = "", voice = True, profile = "", nudge = False):
+def respond(text, session = "", name = "", voice = True, profile = "", nudge = False, routine = ""):
     first = text is None
     lower = ""
     wants_voice = False
@@ -379,6 +379,12 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         messages.append({"role": "user", "content": text})
     elif nudge:
         messages.append({"role": "user", "content": "(they went quiet in the middle of the chat, you're double texting them)"})
+    elif routine == "morning":
+        messages.append({"role": "user", "content": "(you just woke up, you're texting them good morning)"})
+    elif routine == "night":
+        messages.append({"role": "user", "content": "(you're going to sleep, you're texting them goodnight)"})
+    elif routine == "evening":
+        messages.append({"role": "user", "content": "(it's evening, you're checking up on them)"})
     else:
         messages.append({"role": "user", "content": "(they haven't texted, you're texting them first)"})
 
@@ -526,9 +532,15 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if recent >= 40:
         prompt += "You've been texting them for a while now. "
 
-    if nudge:
+    if routine == "morning":
+        prompt += "You just woke up. Say good morning to them like gm, goood morning, just woke up, or something about your day ahead. "
+    elif routine == "night":
+        prompt += "You're about to go to sleep. Say goodnight to them like gn, nightt, going to bed gn, sleep well "
+    elif routine == "evening" and first:
+        prompt += "It's evening and you're checking up on them because you care about them, like did u eat, hows ur day going, u good?, did u get home. "
+    elif nudge:
         prompt += "They stopped answering a little while ago in the middle of the chat and you're double texting. Keep it tiny like hellooo??, u there, ??? or add one more thing to what you were saying, don't be needy about it. "
-    elif first:
+    elif first and not routine:
         prompt += "You haven't talked in a while and you're texting them first. Keep it tiny like yoo, wsp, hru, wyd, or bring up something you remember about them or what you're doing. "
 
     if wants_voice and interest >= 0.45:
