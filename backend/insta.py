@@ -503,8 +503,18 @@ def run():
                     post_story(cl)
 
         except LoginRequired:
-            cl.relogin()
-            cl.dump_settings(SESSION_FILE)
+            print("insta logged her out try logging back in ")
+
+            try:
+                cl.relogin()
+                cl.dump_settings(SESSION_FILE)
+            
+            except (AccountSuspended, ChallengeRequired, FeedbackRequired, PleaseWaitFewMinutes):
+                raise
+            
+            except Exception as e:
+                print(f"couldnt log back in {e}")
+                time.sleep(60)
 
         except AccountSuspended:
             print("instagram suspended her account, open instagram on your phone, log in as her and appeal it")
@@ -527,6 +537,6 @@ if __name__ == "__main__":
         run()
     except AccountSuspended:
         print("instagram suspended her account, open instagram on your phone, log in as her and appeal it")
-    except ChallengeRequired as e:
+    except (ChallengeRequired, FeedbackRequired, PleaseWaitFewMinutes) as e:
         print(f"instagram won't let her log in: {e}")
         print("open instagram on your phone, log in as her and do whatever it asks, then start her again")
