@@ -149,6 +149,23 @@ def went_quiet(thread, session):
     return random.random() < interest / 60
 
 
+def ignoring_her(thread):
+    them = str(thread.users[0].pk)
+    ordered = sorted(thread.messages, key = sent_at)
+    hers = []
+
+    for m in reversed(ordered):
+        if str(m.user_id) == them:
+            break
+
+        hers.append(m)
+
+    if not hers:
+        return False
+
+    return datetime.now() - hers[-1].timestamp > timedelta(hours = 12)
+
+
 def quiet_for(thread):
     if not thread.messages:
         return timedelta(days = 365)
@@ -360,7 +377,9 @@ def run():
                     continue
 
                 if kind and affection(thread) >= 0.7 and not is_minor(session) and not thread.pending:
-                    if not did_routine(session, kind, today):
+                    mad = get_state(session)["annoyance"] >= 0.5
+
+                    if not mad and not ignoring_her(thread) and not did_routine(session, kind, today):
                         todo = kind
 
                 if new:
