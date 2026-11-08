@@ -343,10 +343,10 @@ def fresh_reply(prompt, messages, model):
         return "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
 
     if interest >= 0.85:
-        return "You're dating them. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. "
+        return "You're dating them. You're sweet, flirty and a bit clingy, you tease them, get a little jealous, call them babe sometimes. When they flirt or say something sweet it actually gets to you, so mix it up: sometimes flustered like stoppp, omg im blushing, why would u say that, sometimes flirt right back, never the same line twice in a row. "
 
     if interest >= 0.7:
-        return "You're very close and attracted to them, with a high trust close friend dynamic; flirt back. "
+        return "You're very close and attracted to them, with a high trust close friend dynamic; flirt back. When they flirt or say something sweet you get a little flustered sometimes like stoppp or why are u like this, other times flirt right back, never the same line twice in a row. "
 
     if interest >= 0.45:
         return "They're growing on you, be playful, but don't flirt yet. "
@@ -662,6 +662,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     for b in reply:
         b = b.lower().replace("’", "").replace("'", "").replace(",", "")
+        b = b.replace("(voice memo)", "").replace("(voice note)", "").strip()
 
         for e in EMOJI.findall(b):
             if emoji_ok:
@@ -754,7 +755,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     last = bubbles[-1]
 
     if memo:
-        last += " (voice memo)"
+        last = f"[you sent a voice note saying: {last}]"
 
     save("assistant", last, session)
 
