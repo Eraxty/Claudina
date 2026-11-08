@@ -557,8 +557,16 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if plan:
         prompt += f"They told you they had this coming up: {plan['about']}. It already happened {plan['when']}. You remembered, so in this text ask them how it went, even if it's not what they're talking about, like oh wait how did the {plan['about']} go. "
 
+    hour = current_time().hour
+
+    if hour >= 22 or hour < 5:
+        prompt += "Don't keep every chat going forever. When it fits, like you're getting sleepy, the chat is dying or you've been texting a long time, end it yourself like gn, ok im sleeping, going to bed, but never in the middle of something real. "
+    else:
+        prompt += "Don't keep every chat going forever. When it fits, like you're busy, the chat is dying or you've been texting a long time, end it yourself like gtg, ttyl, ill text u later, but never in the middle of something real. It's daytime for you, so don't say gn or tell them to go to sleep. "
+
+    prompt += "Never tell them to go to sleep or say gn to them unless they said they're tired or going to bed, you don't know what time it is for them. "
+
     prompt += (
-        "Don't keep every chat going forever. When it fits, like it's late and you're getting sleepy, you're busy, the chat is dying or you've been texting a long time, end it yourself like gtg gn, ok im sleeping, ttyl, but never in the middle of something real. "
         "Sometimes react to their last text with an emoji like people do, ❤️ if it's sweet, 😂 if it's funny, 😭 if it's cute or sad, but most texts get no reaction. "
         "If their text doesn't need an answer, like a meme, lol, gn or ok, you can leave reply empty and only react. "
         "Small talk is usually 1 bubble, only split into 2 or 3 when you're saying more than one thing, never two sentences in one bubble. "
@@ -568,7 +576,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         "\"plan\": \"<something they just said they're going to do or have coming up that you could ask about after, like their job interview or their exam, otherwise empty string>\", "
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
         "\"react\": \"<one emoji to react to their last text with, otherwise empty string>\", "
-        "\"bye\": <true if this text ends the chat for now, like gtg, gn, ok im sleeping, ttyl, otherwise false>, "
+        "\"bye\": <true if this text ends the chat for now, otherwise false>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
