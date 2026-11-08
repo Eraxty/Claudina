@@ -19,6 +19,7 @@ from main import ADULT_MODE, ask_model, respond, save, sexted_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
+from voice import MEMOS_DIR
 from state import did_routine, get_state, is_adult_confirmed, is_away, is_minor, mark_routine
 
 load_dotenv()
@@ -300,6 +301,18 @@ def profile(cl, user_id, profiles):
     return about
 
 
+def clean_old_files():
+    for folder in [SELFIES_DIR, MEMOS_DIR]:
+        if not os.path.isdir(folder):
+            continue
+
+        for name in os.listdir(folder):
+            path = os.path.join(folder, name)
+
+            if time.time() - os.path.getmtime(path) > 24 * 3600:
+                os.remove(path)
+
+
 def affection(thread):
     if not thread.users:
         return 0
@@ -318,6 +331,7 @@ def run():
     profiles = {}
     was_free = False
     last_doing = ""
+    next_clean = 0
 
     print(f"logged in as @{USERNAME}")
 
@@ -332,6 +346,10 @@ def run():
                 print(f"[{current_time():%H:%M} her time] she's asleep till {wake}:00")
             else:
                 print(f"[{current_time():%H:%M} her time] she's {last_doing}")
+
+        if time.time() > next_clean:
+            next_clean = time.time() + 3600
+            clean_old_files()
 
         if status["doing"] == "sleeping":
             time.sleep(60)
@@ -353,7 +371,7 @@ def run():
             next_open = time.time() + random.randint(900, 2700)
 
         try:
-            threads = cl.direct_threads(amount = 20, thread_message_limit = 10) + cl.direct_pending_inbox(amount = 20)
+            threads = cl.direct_threads(amount = 20, thread_message_limit = 30) + cl.direct_pending_inbox(amount = 20)
             threads.sort(key = affection, reverse = True)
             kind = routine()
             today = current_time().date().isoformat()

@@ -23,8 +23,10 @@ my dumbahh though ai gf brings joy so i made this 🥀
 - Double texts ("hellooo??") if you go ded in the middle of a chat
 - Ends chats herself ("gtg gn", "ok im sleeping") and then sleeps and doesnt answers (she lives in NYC)
 - Texts you first if you haven't talked to her in a while 
+- Says good morning when she wakes up and goodnight before she sleeps
+- Checks in on you like ("did u eat", "u good?") bcs she cares
 - she can watch and send reels and react to them 
-- she can post and like stories
+- she can post, like and reply to stories
 - she can send and hear voice notes 
 
 ### Relationships
@@ -32,6 +34,7 @@ my dumbahh though ai gf brings joy so i made this 🥀
 - She can like more than one person (shocker)
 - Gets annoyed if you're rude, dry or pushy 
 - Leaves people on read if they mess with her
+- Stops sending gm and gn if you keep ignoring her or she's mad at you (she has standards)
 
 ### Memory
 - Remembers what you tell her about yourself
@@ -42,6 +45,7 @@ my dumbahh though ai gf brings joy so i made this 🥀
 ### Her own life
 - Has a weekday and weekend schedule: classes, sleeping, going out
 - Doesn't check her phone while she's asleep
+- Lives in whatever timezone you set with `HER_TIMEZONE`
 - Has her own day and mood, and only brings it up when it fits
 
 ### Safety
