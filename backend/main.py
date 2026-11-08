@@ -511,7 +511,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         if days <= 1:
             prompt += "You last talked to them yesterday. "
         else:
-            prompt += f"You last talked to them {days} days ago, so it's been a while, you can notice that like omg u disappeared or long time no see"
+            prompt += f"You last talked to them {days} days ago, so it's been a while, you can notice that like omg u disappeared or long time no see. "
 
     if status["available"]:
         prompt += "You are free to text. "
@@ -535,7 +535,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if routine == "morning":
         prompt += "You just woke up. Say good morning to them like gm, goood morning, just woke up, or something about your day ahead. "
     elif routine == "night":
-        prompt += "You're about to go to sleep. Say goodnight to them like gn, nightt, going to bed gn, sleep well "
+        prompt += "You're about to go to sleep. Say goodnight to them like gn, nightt, going to bed gn, sleep well. "
     elif routine == "evening" and first:
         prompt += "It's evening and you're checking up on them because you care about them, like did u eat, hows ur day going, u good?, did u get home. "
     elif nudge:
@@ -708,7 +708,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
             save_memory(fact, session = session)
             break
 
-    if not first and not intimate_turn and str(result.get("byee")).lower() == "true":
+    if not first and not intimate_turn and str(result.get("bye")).lower() == "true":
         go_away(session, random.randint(60, 180))
 
     about_me = str(result.get("self") or "")
