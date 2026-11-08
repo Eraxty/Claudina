@@ -152,6 +152,10 @@ def watch_stories(cl, threads):
 
             if close >= 0.45 and random.random() < 0.3:
                 seen = look(story.thumbnail_url, story.video_url)
+
+                if seen == "couldnt load it":
+                    continue
+
                 result = think_about_story(user.username, close, session, seen)
                 text = str(result.get("reply") or "").strip().lower()
                 like = str(result.get("like")).lower() == "true"

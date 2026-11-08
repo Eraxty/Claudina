@@ -12,7 +12,7 @@ from config import HER_AGE, HER_LIFE, HER_NAME
 from gpu_lock import GPU_LOCK
 from main import ask_model, groq, save
 from memory import top_memories
-from state import get_state, is_minor
+from state import get_state, is_away, is_minor
 
 VISION_MODEL = os.environ.get("VISION_MODEL", "gemma3:4b")
 GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
@@ -134,7 +134,7 @@ def doomscroll(cl, threads, reel):
         
         close = get_state(session)["affection"]
 
-        if close < 0.45 or is_minor(session):
+        if close < 0.45 or is_minor(session) or is_away(session):
             continue
 
         people[user.username] = (thread.id, session)
@@ -160,7 +160,7 @@ def doomscroll(cl, threads, reel):
 
     for pick in result.get("send") or []:
         
-        if pick.get("to") not in people:
+        if not isinstance(pick, dict) or pick.get("to") not in people:
             continue
 
         thread_id, session = people[pick["to"]]
