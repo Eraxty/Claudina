@@ -112,3 +112,24 @@ def is_away(session):
     get_state(session)
     conn.execute("UPDATE user_state SET verified = 1 WHERE session = ? AND minor = 0", (session,))
     conn.commit()
+
+
+conn.execute("""
+CREATE TABLE IF NOT EXISTS routines (
+    session TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    day TEXT NOT NULL,
+    PRIMARY KEY (session, kind, day))""")
+
+conn.commit()
+
+
+def did_routine(session, kind, day):
+    row = conn.execute("SELECT 1 FROM routines WHERE session = ? AND kind = ? AND day = ?", (session, kind, day)).fetchone()
+
+    return row is not None
+
+
+def mark_routine(session, kind, day):
+    conn.execute("INSERT OR IGNORE INTO routines (session, kind, day) VALUES (?, ?, ?)", (session, kind, day))
+    conn.commit()
