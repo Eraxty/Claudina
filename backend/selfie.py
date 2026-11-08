@@ -81,11 +81,16 @@ def make_pic(pipe, scene, face, out):
         prompt = f"amateur iPhone photo of {HER}, {scene}, candid, natural lighting"
     else:
         pipe.set_ip_adapter_scale(0)
-        prompt = f"amateur iPhone photo, {scene}, candid, natural lighting"
+        prompt = f"amateur iPhone photo of things, {scene}, still life, empty room with nobody in it, candid natural lighting"
+
+    negative = NEGATIVE
+
+    if not face:
+        negative = f"{NEGATIVE}, person, people, woman, man, face, body"
 
     arguments = dict(
         prompt = prompt,
-        negative_prompt = NEGATIVE,
+        negative_prompt = negative,
         num_inference_steps = 6,
         guidance_scale = 1.5,
         width = 512,
@@ -94,10 +99,12 @@ def make_pic(pipe, scene, face, out):
 
     if face:
         arguments["ip_adapter_image"] = load_image(FACE_FILE)
+    else:
+        arguments["ip_adapter_image"] = Image.new("RGB", (224, 224), "white")
 
     image = pipe(**arguments).images[0]
 
-    image.convert("RGB").save(out, quality = 90)
+    image.convert("RB").save(out, quality = 90)
 
 
 def nsfw_pic(pipe, scene, face, out):
@@ -128,6 +135,8 @@ def nsfw_pic(pipe, scene, face, out):
 
     if face:
         arguments["ip_adapter_image"] = load_image(FACE_FILE)
+    else:
+        arguments["ip_adapter_image"] = Image.new("RGB", (224, 224), "white")
 
     image = pipe(**arguments).images[0]
 

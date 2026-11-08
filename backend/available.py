@@ -1,8 +1,6 @@
-import json
 import random
-import os
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from config import HER_TIMEZONE
@@ -28,30 +26,11 @@ WEEKEND = [
     (19, 24, "chilling at home", True),
 ]
 
-OFFSET_FILE = "clock_offset.json"
-
 SPONTANEOUS = ["napping", "in the shower", "on a call with her mom", "out getting food"]
 
 
-def _load_offset():
-    try:
-        with open(OFFSET_FILE) as f:
-            return json.load(f).get("hours", 0)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return 0
-
-
-def skip_time(hours = 0):
-    offset = _load_offset() + hours
-    
-    with open(OFFSET_FILE, "w") as f:
-        json.dump({"hours": offset}, f)
-
-    return offset
-
-
 def current_time():
-    return datetime.now(ZoneInfo(HER_TIMEZONE)).replace(tzinfo = None) + timedelta(hours = _load_offset())
+    return datetime.now(ZoneInfo(HER_TIMEZONE)).replace(tzinfo = None)
 
 
 def get_status(now = None):
