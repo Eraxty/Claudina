@@ -13,14 +13,14 @@ from instagrapi.exceptions import AccountSuspended, ChallengeRequired, FeedbackR
 from ollama import generate, ps
 
 from available import current_time, get_status, routine, sleep_hours
-from config import HER_AGE, HER_LIFE, HER_NAME, OFF_LIMITS
+from config import HER_AGE, HER_LIFE, HER_NAME, REFUSAL, OFF_LIMITS
 from day import her_day
-from main import EXTRA_MODE, ask_model, respond, save, crossed_line_recently
+from main import ask_model, respond, save, crossed_line_recently
 from plans import due_plan
 from reels import doomscroll, look, watch
 from stories import posted_today, remember_story, story_reply, watch_stories
 from voice import MEMOS_DIR
-from state import did_routine, get_state, is_verified, is_away, is_minor, mark_routine
+from state import come_back, did_routine, get_state, is_away, is_minor, mark_routine
 
 load_dotenv()
 
@@ -180,22 +180,28 @@ def sent_at(message):
     return message.timestamp
 
 
-def send_pic(cl, thread_id, session, doing, asked, alt = False):
-        prompt = (
-            f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. Someone you text asked for a pic and right now you are {doing}. "
-            "Pick what you'd actually snap on your phone rn like a normal girl would, it doesn't have to be your face. "
-            "Like a mirror pic of your outfit, your nails, your iced coffee, what you're cooking, your desk while studying, the view outside, or a selfie. "
-            "It has to match what you're doing and what they asked for. Keep it casual and fully clothed. "
-            'Reply ONLY as JSON: {"pic": "<what the photo shows>", "face": <true if your face is in it, otherwise false>}'
-        )
+def send_pic(cl, thread_id, session, doing, asked):
+    prompt = (
+        f"You are {HER_NAME}, {HER_AGE}, {HER_LIFE}. Someone you text asked for a pic and right now you are {doing}. "
+        "Pick what you'd actually snap on your phone rn like a normal girl would, it doesn't have to be your face. "
+        "Like a mirror pic of your outfit, your nails, your iced coffee, what you're cooking, your desk while studying, the view outside, or a selfie. "
+        "It has to match what you're doing and what they asked for. Keep it casual and fully clothed. "
+        'Reply ONLY as JSON: {"pic": "<what the photo shows>", "face": <true if your face is in it, otherwise false>}'
+    )
 
     result = ask_model(prompt, [{"role": "user", "content": asked}])
-    scene = str(result.get("pic") or f"selfie while {doing}")
+
+    scene = str(result.get("pic") or "")
+
+    if not scene or len(scene) > 200 or REFUSAL.search(scene):
+        scene = f"mirror selfie while {doing}"
+
     face = "noface"
 
     if str(result.get("face")).lower() == "true":
         face = "face"
 
+    path = take_pic(scene, face)
 
     if not path:
         return
@@ -206,7 +212,7 @@ def send_pic(cl, thread_id, session, doing, asked, alt = False):
     print(f"claudina: [pic] {scene}")
 
 
-def take_pic(scene, face, alt = False):
+def take_pic(scene, face):
     os.makedirs(SELFIES_DIR, exist_ok = True)
     path = os.path.join(SELFIES_DIR, f"{time.time_ns()}.jpg")
 
@@ -218,12 +224,16 @@ def take_pic(scene, face, alt = False):
 
     print(f"taking a pic: {scene}")
 
-    
-    result = subprocess.run(
-        [SELFIE_PYTHON, SELFIE_SCRIPT, mode, scene, face, path],
-        capture_output = True,
-        text = True,
-    )
+    try:
+        result = subprocess.run(
+            [SELFIE_PYTHON, SELFIE_SCRIPT, scene, face, path],
+            capture_output = True,
+            text = True,
+            timeout = 600,
+        )
+    except subprocess.TimeoutExpired:
+        print("pic took over 10 min, skipping it")
+        return None
 
     if result.returncode != 0:
         print(f"pic didnt work: {result.stderr[-500:]}")
@@ -392,7 +402,14 @@ def run():
                 todo = ""
 
                 if is_away(session):
-                    continue
+                    if not new:
+                        continue
+
+                    if not feed and len(new) < 5:
+                        continue
+
+                    come_back(session)
+                    print(f"{user.username} kept texting so she came back")
 
                 if kind and affection(thread) >= 0.7 and not is_minor(session) and not thread.pending:
                     mad = get_state(session)["annoyance"] >= 0.5
@@ -472,7 +489,9 @@ def run():
                     
                     print(f"claudina: [reacted {react}]")
 
-                if not bubbles:
+                wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
+
+                if not bubbles and not wants_pic:
                     continue
 
                 if thread.pending:
@@ -507,20 +526,8 @@ def run():
                         
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
-                wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
-
 
                     send_pic(cl, thread.id, session, status["doing"], asked)
-
-                if (
-                    EXTRA_MODE
-                    and wants_pic
-                    and affection(thread) >= 0.75
-                    and is_verified(session)
-                    and not is_minor(session)
-                    and os.path.exists(SELFIE_PYTHON)
-                ):
-                    send_pic(cl, thread.id, session, status["doing"], asked, alt = True)
 
 
             if status["available"] and time.time() > next_scroll:
@@ -530,7 +537,7 @@ def run():
 
             if feed and status["available"]:
                 doomscroll(cl, threads, feed.pop(0))
-                next_open = time.time() + random.randint(2, 8)
+                next_open = 0
 
             if status["available"] and time.time() > next_stories:
                 next_stories = time.time() + random.randint(5400, 4 * 3600)
@@ -566,7 +573,8 @@ def run():
             print(f"error: {e}")
             time.sleep(15)
 
-        time.sleep(5)
+        if not feed:
+            time.sleep(5)
 
 
 if __name__ == "__main__":

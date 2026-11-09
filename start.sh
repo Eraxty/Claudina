@@ -70,11 +70,13 @@ if [ ! -f "$BACKEND/.env" ]; then
   read -rp "(enter for New York): " HER_TIMEZONE
   HER_TIMEZONE="${HER_TIMEZONE:-America/New_York}"
 
-  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\nHER_NAME="%s"\nHER_AGE=%s\nHER_LIFE="%s"\nHER_TIMEZONE=%s\nEXTRA_MODE=0\n' \
+  printf 'GROQ_API_KEY=%s\nINSTA_USERNAME=%s\nINSTA_PASSWORD=%s\nHER_NAME="%s"\nHER_AGE=%s\nHER_LIFE="%s"\nHER_TIMEZONE=%s\n' \
     "$KEY" "${INSTA_USER#@}" "$INSTA_PASS" "${HER_NAME//\"/}" "$HER_AGE" "${HER_LIFE//\"/}" "$HER_TIMEZONE" > "$BACKEND/.env"
   chmod 600 "$BACKEND/.env"
   rm -f "$BACKEND/insta_session.json" "$BACKEND/insta_state.json"
 
+  read -rp "download the pic model so she can send pics? needs an nvidia gpu and ~15gb (y/n): " PICS
+  if [[ "$PICS" == y* ]]; then
     PY="$(find_python)" || PY=python3
     if [ ! -d "$BACKEND/selfie-venv" ]; then
       "$PY" -m venv "$BACKEND/selfie-venv"

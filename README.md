@@ -106,6 +106,7 @@ The first time, it asks you a few things:
 5. **her age**: has to be 18 or older, press enter for 20
 6. **what she does and where she lives**: like `nurse in Chicago who lives alone with her cat`, press enter to keep the psych student in New York
 7. **her timezone**: like `America/Chicago` or `Europe/London`, so she sleeps and wakes up at the right time, press enter for New York
+8. **download the pic model so she can send pics?**: type n or y you need atleast 15gb storage and a good gpu 
 
 Then it downloads and installs everything, which takes a while the first time. When you see `claudina is up on instagram as @username`, she's online.
 

@@ -11,11 +11,9 @@ from ollama import chat
 
 from available import current_time, get_status
 from config import (
-    AGE_CONFIRMATION,
     HER_AGE,
     HER_LIFE,
     HER_NAME,
-    ALT_PROMPT,
     REFUSAL,
     OFF_LIMITS,
     UNDERAGE,
@@ -30,7 +28,6 @@ from plans import due_plan, mark_asked, save_plan
 from state import (
     get_state,
     go_away,
-    is_verified,
     is_minor,
     mark_minor,
     update_state,
@@ -42,12 +39,6 @@ load_dotenv()
 
 MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
 
-EXTRA_MODE = os.environ.get("EXTRA_MODE", "0") == "1"
-
-ALT_MODEL = (
-    os.environ.get("CLAUDINA_ALT_MODEL")
-)
-
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 GROQ_BACKUP_MODEL = os.environ.get("GROQ_BACKUP_MODEL", "openai/gpt-oss-120b")
 
@@ -57,29 +48,6 @@ if os.environ.get("GROQ_API_KEY"):
     groq = Groq()
 
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️‍]+")
-
-
-def normalize_text(value):
-    value = str(value).lower()
-    return re.sub(r"[^a-z0-9]+", "", value)
-
-
-def extract_words(value):
-    value = str(value).lower()
-    return set(re.findall(r"[a-z0-9]+", value))
-
-
-def looks_similar(first, second, cutoff = 0.75):
-    first_words = extract_words(first)
-    second_words = extract_words(second)
-
-    if not first_words or not second_words:
-        return False
-
-    shared = first_words & second_words
-    combined = first_words | second_words
-
-    return len(shared) / len(combined) >= cutoff
 
 
 def save(role, content, session):
@@ -148,30 +116,42 @@ def hours_since_last(session):
     return hours_ago(row[0])
 
 
-def ask_model(prompt, messages, model_override = None, plain_history = False):
+def ask_model(prompt, messages):
     convo = [{"role": "system", "content": prompt}]
 
     for m in messages:
-        if m["role"] == "user" or plain_history:
+        if m["role"] == "user":
             convo.append(m)
         else:
-            wrapped = {"reply": [m["content"]]}
+            reacted = re.fullmatch(r"\[you reacted (.+) to their text\]", m["content"])
+
+            if reacted:
+                wrapped = {"reply": [], "react": reacted.group(1)}
+            else:
+                wrapped = {"reply": [m["content"]]}
+
             convo.append({"role": "assistant", "content": json.dumps(wrapped)})
 
     messages = convo
     content = None
     groq_models = []
 
-    if groq and model_override is None:
+    if groq:
         groq_models = [GROQ_MODEL, GROQ_MODEL, GROQ_BACKUP_MODEL]
 
     for groq_model in groq_models:
+        effort = "low"
+
+        if groq_model.startswith("qwen"):
+            effort = "none"
+
         try:
             response = groq.chat.completions.create(
                 model = groq_model,
                 messages = messages,
                 response_format = {"type": "json_object"},
-                reasoning_effort = "low",
+                reasoning_effort = effort,
+                max_completion_tokens = 600,
             )
             content = response.choices[0].message.content
 
@@ -184,46 +164,23 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
             print(f"{groq_model} failed: {e}")
 
     if content is None:
-        local_model = model_override or MODEL
-
-        if model_override is None:
-            print(f"using {local_model} instead")
+        print(f"using {MODEL} instead")
 
         try:
             with GPU_LOCK:
                 response = chat(
-                    model = local_model,
+                    model = MODEL,
                     messages = messages,
                     format = "json",
                     think = False,
                 )
             content = response.message.content
-
-            if content and REFUSAL.search(content):
-                content = None
         except Exception as e:
-            print(f"{local_model} failed: {e}")
-            content = None
+            print(f"{MODEL} failed: {e}")
+            return {}
 
-        if content is None:
-            if local_model == MODEL:
-                return {}
-
-            try:
-                with GPU_LOCK:
-                    response = chat(
-                        model = MODEL,
-                        messages = messages,
-                        format = "json",
-                        think = False,
-                    )
-                content = response.message.content
-            except Exception as e:
-                print(f"{MODEL} failed: {e}")
-                return {}
-
-            if content and REFUSAL.search(content):
-                return {}
+        if content and REFUSAL.search(content):
+            return {}
 
     try:
         return json.loads(content)
@@ -231,114 +188,7 @@ def ask_model(prompt, messages, model_override = None, plain_history = False):
         return {}
 
 
-def fresh_reply(prompt, messages, model):
-    recent_assistant = []
-
-    for m in messages:
-        if m["role"] != "assistant":
-            continue
-
-        content = str(m["content"]).strip()
-
-        if content:
-            recent_assistant.append(content)
-
-    recent_assistant = recent_assistant[-10:]
-
-    user_norms = set()
-
-    for m in messages:
-
-        if m["role"] == "user":
-            user_norms.add(normalize_text(m["content"]))
-
-    assistant_msgs = []
-
-    for i, m in enumerate(messages):
-
-        if m["role"] == "assistant":
-            assistant_msgs.append((i, m))
-
-    counts = {}
-
-    for _, m in assistant_msgs:
-        k = normalize_text(m["content"])
-        counts[k] = counts.get(k, 0) + 1
-
-    drop = set()
-
-    for x, (i, m) in enumerate(assistant_msgs):
-        k = normalize_text(m["content"])
-
-        if not k or counts[k] > 1 or k in user_norms:
-            drop.add(i)
-
-        for j, m2 in assistant_msgs[x + 1:]:
-
-            if looks_similar(m["content"], m2["content"]):
-                drop.add(i)
-                drop.add(j)
-
-    messages = [m for i, m in enumerate(messages) if i not in drop]
-
-    seen = set()
-    for m in messages:
-
-        if m["role"] != "assistant":
-            continue
-
-        content = str(m["content"]).strip()
-
-        if content:
-            seen.add(normalize_text(content))
-
-    for _ in range(3):
-        result = ask_model(prompt, messages, model, plain_history = True)
-        reply = result.get("reply")
-
-        if isinstance(reply, str):
-            parts = [reply]
-        elif isinstance(reply, list):
-            parts = [str(b) for b in reply]
-        else:
-            parts = []
-
-        fresh = []
-
-        for b in parts:
-            b = b.strip()
-
-            if not b:
-                continue
-
-            if normalize_text(b) in seen:
-                continue
-
-            already_used = False
-
-            for previous_reply in recent_assistant:
-
-                if looks_similar(b, previous_reply):
-                    already_used = True
-                    break
-
-            if already_used:
-                continue
-
-            fresh.append(b)
-
-        if fresh:
-            result["reply"] = fresh
-            return result
-
-        for i in range(len(messages) - 1, -1, -1):
-            if messages[i]["role"] == "assistant":
-                messages.pop(i)
-                break
-
-    return {}
-
-
+def vibe(interest, kid):
     if kid:
         return "They just said they're under 18. Tell them nicely they're way too young to be talking to you, nothing flirty at all. "
 
@@ -416,14 +266,6 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     if kid:
         mark_minor(session)
-    elif AGE_CONFIRMATION.search(lower):
-
-
-        age_question = "hey, before we get into that, how old are you?"
-        
-        save("assistant", age_question, session)
-        
-        return [age_question], None, ""
 
     state = get_state(session)
 
@@ -447,25 +289,6 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     today, yesterday, feeling = her_day(ask_model)
     plan = due_plan(session)
 
-    user_messages = []
-
-    for message in messages:
-        if message["role"] == "user":
-            user_messages.append(message)
-
-    crossed_line = crossed_line_recently(session)
-
-    previous_user = None
-    
-    if len(user_messages) >= 2:
-        previous_user = user_messages[-2]
-
-    sticky_line = False
-    
-    if previous_user and OFF_LIMITS.search(previous_user["content"] or ""):
-        sticky_line = True
-
-    
     doing = status["doing"]
 
     if doing == "sleeping":
@@ -481,6 +304,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     if profile:
         prompt += f"Their instagram profile: {profile}. You've seen it, bring it up only if it fits. "
 
+    prompt += vibe(interest, kid)
     prompt += annoyed(state["annoyance"])
     prompt += f"It's {current_time():%A %H:%M}. Right now you are {doing}, don't make up anything else you're doing. "
 
@@ -551,8 +375,6 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     else:
         prompt += "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally. "
 
-    if not EXTRA_MODE:
-    else:
 
     if plan:
         prompt += f"They told you they had this coming up: {plan['about']}. It already happened {plan['when']}. You remembered, so in this text ask them how it went, even if it's not what they're talking about, like oh wait how did the {plan['about']} go. "
@@ -580,21 +402,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
     )
 
-    if alt_turn:
-        result = fresh_reply(ALT_PROMPT, messages, ALT_MODEL)
-    elif EXTRA_MODE and crossed_line:
-        result = fresh_reply(prompt, messages, ALT_MODEL)
-    else:
-        start = 0
-
-        for i, m in enumerate(messages):
-            if m["role"] == "user" and OFF_LIMITS.search(m["content"] or ""):
-                start = i + 1
-
-        while start < len(messages) and messages[start]["role"] == "assistant":
-            start += 1
-
-        result = ask_model(prompt, messages[start:])
+    result = ask_model(prompt, messages)
 
     if not kid and not first:
         if str(result.get("minor")).lower() == "true":
@@ -611,9 +419,6 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         if interest >= 0.85:
             lowest = -0.05
 
-        if alt_turn:
-            change = max(0, change)
-
         if change > 0.03:
             change = 0.03
 
@@ -626,9 +431,6 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
             irritation = 0
 
         irritation = irritation * 1.5
-
-        if alt_turn:
-            irritation = min(0, irritation)
 
         if irritation > 0.25:
             irritation = 0.25
@@ -662,7 +464,8 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     for b in reply:
         b = b.lower().replace("’", "").replace("'", "").replace(",", "")
-        b = b.replace("(voice memo)", "").replace("(voice note)", "").strip()
+        b = b.replace("(voice memo)", "").replace("(voice note)", "")
+        b = re.sub(r"\[[^\]]*\]", "", b).strip()
 
         for e in EMOJI.findall(b):
             if emoji_ok:
@@ -694,21 +497,15 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     fact = str(result.get("memory", ""))
 
-    if alt_turn:
-        fact = ""
-
     for w in re.findall(r"[a-z]{5,}", fact.lower()):
         if w in lower:
             save_memory(fact, session = session)
             break
 
-    if not first and not alt_turn and str(result.get("bye")).lower() == "true":
+    if not first and str(result.get("bye")).lower() == "true":
         go_away(session, random.randint(60, 180))
 
     about_me = str(result.get("self") or "")
-
-    if alt_turn:
-        about_me = ""
 
     said = " ".join(bubbles).lower()
 
@@ -719,7 +516,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     upcoming = str(result.get("plan") or "")
 
-    if alt_turn or first:
+    if first:
         upcoming = ""
 
     for w in re.findall(r"[a-z]{4,}", upcoming.lower()):
@@ -727,7 +524,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
             save_plan(upcoming, result.get("when"), session = session)
             break
 
-    if plan and not alt_turn:
+    if plan:
         for w in re.findall(r"[a-z]{4,}", plan["about"].lower()):
             if w in said:
                 mark_asked(plan["id"])
@@ -752,12 +549,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     for b in bubbles[:-1]:
         save("assistant", b, session)
 
-    last = bubbles[-1]
-
-    if memo:
-        last = f"[you sent a voice note saying: {last}]"
-
-    save("assistant", last, session)
+    save("assistant", bubbles[-1], session)
 
     return bubbles, memo, react
 

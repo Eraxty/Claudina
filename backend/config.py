@@ -32,16 +32,15 @@ UNDERAGE = re.compile(
     re.IGNORECASE,
 )
 
-
 OFF_LIMITS = re.compile(
     re.IGNORECASE,
 )
 
 REFUSAL = re.compile(
-    r"(?:cant|can'?t|can not|won'?t|will not)\s+(?:continue|do this|keep going)"
+    r"(?:cant|can'?t|cannot|can not|won'?t|will not)\s+(?:continue|do this|keep going|fulfill|help with)"
     r"|not comfortable\s+(?:with|talking|continuing)"
     r"|i'?d rather not (?:continue|talk about)"
-    r"|i'?m sorry,?\s+but\s+i\s+(?:cant|can'?t)",
+    r"|i'?m sorry,?\s+but\s+i\s+(?:cant|can'?t|cannot)"
+    r"|\bas an ai\b|i am an artificial intelligence",
     re.IGNORECASE,
 )
-

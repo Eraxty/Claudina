@@ -18,8 +18,6 @@ services:
       - |
         until ollama list >/dev/null 2>&1; do sleep 1; done
         ollama pull $${OLLAMA_MODEL:-gemma3:4b}
-        if [ "$$EXTRA_MODE" = "1" ]; then
-        fi
 
   claudina:
     build: .

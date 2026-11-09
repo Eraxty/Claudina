@@ -20,8 +20,6 @@ NEGATIVE = (
     "cartoon, anime, 3d render, painting, deformed, extra fingers, bad hands, watermark, text, logo"
 )
 
-
-
 def load():
     encoder = CLIPVisionModelWithProjection.from_pretrained(
         "h94/IP-Adapter",
@@ -100,23 +98,18 @@ def make_pic(pipe, scene, face, out):
 
     image = pipe(**arguments).images[0]
 
-    image.convert("RB").save(out, quality = 90)
+    image.convert("RGB").save(out, quality = 90)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
-        mode = "sfw"
-        scene, face_arg, out = sys.argv[1:]
-    
-    elif len(sys.argv) == 5:
-        mode, scene, face_arg, out = sys.argv[1:]
-    
-    else:
+    if len(sys.argv) != 4:
+        raise SystemExit("usage: selfie.py <scene> <face|noface> <output.jpg>")
 
+    scene, face_arg, out = sys.argv[1:]
 
     pipe = load()
 
     if not os.path.exists(FACE_FILE):
         make_face(pipe)
 
-    generate(pipe, scene, face_arg == "face", out)
+    make_pic(pipe, scene, face_arg == "face", out)

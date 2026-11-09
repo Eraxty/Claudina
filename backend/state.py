@@ -32,12 +32,6 @@ except sqlite3.OperationalError:
     pass
 
 try:
-    conn.execute("ALTER TABLE user_state ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
-    conn.commit()
-except sqlite3.OperationalError:
-    pass
-
-try:
     conn.execute("ALTER TABLE user_state ADD COLUMN away_until TEXT")
     conn.commit()
 except sqlite3.OperationalError:
@@ -82,13 +76,8 @@ def is_minor(session = ""):
 
 def mark_minor(session = ""):
     get_state(session)
-    conn.execute("UPDATE user_state SET minor = 1, verified = 0 WHERE session = ?", (session,))
+    conn.execute("UPDATE user_state SET minor = 1 WHERE session = ?", (session,))
     conn.commit()
-
-
-def is_verified(session = ""):
-    row = conn.execute("SELECT verified FROM user_state WHERE session = ?", (session,)).fetchone()
-    return bool(row and row[0])
 
 
 def go_away(session, minutes):
@@ -109,11 +98,6 @@ def is_away(session):
     return bool(row and row[0])
 
 
-    get_state(session)
-    conn.execute("UPDATE user_state SET verified = 1 WHERE session = ? AND minor = 0", (session,))
-    conn.commit()
-
-
 conn.execute("""
 CREATE TABLE IF NOT EXISTS routines (
     session TEXT NOT NULL,
@@ -132,4 +116,9 @@ def did_routine(session, kind, day):
 
 def mark_routine(session, kind, day):
     conn.execute("INSERT OR IGNORE INTO routines (session, kind, day) VALUES (?, ?, ?)", (session, kind, day))
+    conn.commit()
+
+
+def come_back(session):
+    conn.execute("UPDATE user_state SET away_until = NULL WHERE session = ?", (session,))
     conn.commit()

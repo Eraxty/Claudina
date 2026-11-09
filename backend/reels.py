@@ -33,7 +33,7 @@ def look_groq(frames):
     response = groq.chat.completions.create(
         model = GROQ_VISION_MODEL,
         messages = [{"role": "user", "content": content}],
-        reasoning_effort = "low",
+        reasoning_effort = "none",
     )
 
     return response.choices[0].message.content
