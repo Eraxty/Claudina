@@ -15,3 +15,5 @@ backend/memory.txt
 build-venv/
 build/
 dist/
+backend/*-study/
+backend/*-cache/

@@ -50,6 +50,7 @@ my dumbahh though ai gf brings joy so i made this 🥀
 
 ### Safety
 - Anyone who says they're under 18 gets told they're too young, then ignored bcs she doesnt text minors
+- She keeps everything PG, if someone gets inappropriate she turns it down and wont send pics to them
 
 
 ## How to use

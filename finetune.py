@@ -1,3 +1,4 @@
+import base64
 import os
 import random
 import re
@@ -10,6 +11,7 @@ from trl import SFTConfig, SFTTrainer
 BASE = os.environ.get("BASE_MODEL", "Qwen/Qwen3-0.6B")
 
 
+OFF_LIMITS = re.compile(base64.b64decode("XGIoc2V4XHcqfG51ZGVzP3xuYWtlZHxob3JueXxwb3JuXHcqfGRpY2t8Y29ja3xwdXNzeXx0aXRzfGJvb2JzfGN1bSlcYg==").decode(), re.IGNORECASE)
 KID = re.compile(r"\bi am ([1-9]|1[0-7])\b|\b([1-9]|1[0-7]) years old|high ?school|middle school|\bgrade\b|\bkid\b", re.IGNORECASE)
 
 
@@ -125,6 +127,7 @@ def build():
             for m in messages:
                 text += m["content"] + " "
 
+            if len(messages) >= 2 and "http" not in text and not OFF_LIMITS.search(text):
                 chats.append({"messages": messages})
 
         print(f"{source.__name__}: {len(chats) - before}")

@@ -14,8 +14,9 @@ from config import (
     HER_AGE,
     HER_LIFE,
     HER_NAME,
-    REFUSAL,
     OFF_LIMITS,
+    OFF_LIMITS_REPLY,
+    REFUSAL,
     UNDERAGE,
 )
 from gpu_lock import GPU_LOCK
@@ -375,6 +376,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     else:
         prompt += "If they ask for a pic, don't announce, describe, or promise the photo in text; just reply naturally. "
 
+    prompt += "Keep everything PG no matter what. If they push for anything inappropriate or ask for revealing pics, turn it down casually like a normal girl would. "
 
     if plan:
         prompt += f"They told you they had this coming up: {plan['about']}. It already happened {plan['when']}. You remembered, so in this text ask them how it went, even if it's not what they're talking about, like oh wait how did the {plan['about']} go. "
@@ -397,6 +399,8 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
         "\"self\": \"<a new detail about your own life you just said in this reply that you'd need to keep straight later, like your class schedule, a pet, a friend's name or where you're from, written like 'i have a cat named mochi', otherwise empty string>\", "
         "\"plan\": \"<something they just said they're going to do or have coming up that you could ask about after, like their job interview or their exam, otherwise empty string>\", "
         "\"when\": \"<the day that plan happens: today, tomorrow, or a weekday name like thursday>\", "
+        "\"interest\": <-0.2 to 0.2, normal small talk, short or dry texts and not answering your question are 0, funny, sweet or respectful makes it go up, a cheesy compliment or flirting is 0, insults, anything inappropriate, creepy or pushy makes it go down>, "
+        "\"annoyance\": <-0.2 to 0.2, goes up 0.1 to 0.2 if they're rude, call you boring or dry, are pushy, keep asking for pics or sex after you said no, ignore your questions, or say something dumb, goes down if they apologize, are sweet or make you laugh, normal texts are 0>, "
         "\"react\": \"<one emoji to react to their last text with, otherwise empty string>\", "
         "\"bye\": <true if this text ends the chat for now, otherwise false>, "
         "\"minor\": <true if they said or hinted they're under 18, otherwise false>}."
@@ -452,7 +456,11 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
 
     cleaned = []
     for b in reply:
-        b = str(b).strip()
+        b = str(b).lower().replace("(voice memo)", "").replace("(voice note)", "")
+        b = re.sub(r"\[[^\]]*\]", "", b).strip()
+
+        if OFF_LIMITS_REPLY.search(b):
+            continue
 
         if b:
             cleaned.append(b)
@@ -463,9 +471,7 @@ def respond(text, session = "", name = "", voice = True, profile = "", nudge = F
     emoji_ok = random.random() < 0.4
 
     for b in reply:
-        b = b.lower().replace("’", "").replace("'", "").replace(",", "")
-        b = b.replace("(voice memo)", "").replace("(voice note)", "")
-        b = re.sub(r"\[[^\]]*\]", "", b).strip()
+        b = b.replace("’", "").replace("'", "").replace(",", "")
 
         for e in EMOJI.findall(b):
             if emoji_ok:

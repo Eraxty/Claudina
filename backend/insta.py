@@ -439,9 +439,9 @@ def run():
                             lines.append(line)
 
                         if m.text:
-                            asked += m.text.lower()
+                            asked += m.text.lower() + "\n"
                         elif m.item_type == "voice_media" and line:
-                            asked += line.lower()
+                            asked += line.lower() + "\n"
 
                     if not lines:
                         continue
@@ -490,8 +490,18 @@ def run():
                     print(f"claudina: [reacted {react}]")
 
                 wants_pic = re.search(r"\b(pic|pics|selfie|photo)\b", asked)
+                sends_pic = False
 
-                if not bubbles and not wants_pic:
+                if wants_pic and affection(thread) >= 0.45 and os.path.exists(SELFIE_PYTHON):
+                    sends_pic = True
+
+                if is_minor(session) or get_state(session)["annoyance"] >= 0.5:
+                    sends_pic = False
+
+                if OFF_LIMITS.search(asked) or crossed_line_recently(session):
+                    sends_pic = False
+
+                if not bubbles and not sends_pic:
                     continue
 
                 if thread.pending:
@@ -526,7 +536,7 @@ def run():
                         
                         cl.direct_send(bubbles[-1], thread_ids = [thread.id])
 
-
+                if sends_pic:
                     send_pic(cl, thread.id, session, status["doing"], asked)
 
 
